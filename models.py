@@ -29,7 +29,7 @@ def CTPN(input_shape, hidden_units = 128, output_units = 512):
   
   return tf.keras.Model(inputs = inputs, outputs = (bbox_pred, cls_pred, cls_prob));
 
-def Loss(img_shape, feat_shape, stride = 16):
+def Loss(img_shape, feat_shape):
 
   # constant anchors
   hws = [(11,16),(16,16),(23,16),(33,16),(48,16),(68,16),(97,16),(139,16),(198,16),(283,16)]; # (h,w)
@@ -46,10 +46,10 @@ def Loss(img_shape, feat_shape, stride = 16):
   bbox_pred = tf.keras.Input((feat_shape[-3], feat_shape[-2], 40));
   cls_pred = tf.keras.Input((feat_shape[-3], feat_shape[-2], 20));
   # anchor target layer
-  grid = tf.keras.layers.Lambda(lambda x, s: tf.stack([
-    tf.tile(tf.reshape(s * tf.range(tf.cast(x.shape[2], dtype = tf.float32), dtype = tf.float32), (1, x.shape[2])), (x.shape[1], 1)),
-    tf.tile(tf.reshape(s * tf.range(tf.cast(x.shape[1], dtype = tf.float32), dtype = tf.float32), (x.shape[1], 1)), (1, x.shape[2]))
-    ], axis = -1), arguments = {'s': stride})(bbox_pred); # grid.shape = (h, w, 2) in sequence of (x,y)
+  grid = tf.keras.layers.Lambda(lambda x: tf.stack([
+    tf.tile(tf.reshape(16 * tf.range(tf.cast(x.shape[2], dtype = tf.float32), dtype = tf.float32), (1, x.shape[2])), (x.shape[1], 1)),
+    tf.tile(tf.reshape(16 * tf.range(tf.cast(x.shape[1], dtype = tf.float32), dtype = tf.float32), (x.shape[1], 1)), (1, x.shape[2]))
+    ], axis = -1))(bbox_pred); # grid.shape = (h, w, 2) in sequence of (x,y), 16 because vgg16's block5_conv3's output size is 1 / 16 of input image size
   all_anchors = tf.keras.layers.Lambda(lambda x, anchors:
     tf.expand_dims(tf.concat([x,x], axis = -1), axis = -2) + tf.reshape(anchors, (1,1,10,4)), # shape = (1, 1, 10, 4)
     arguments = {'anchors': anchors})(grid); # all_anchors.shape = (h, w, 10, 4) in sequence of (xmin ymin xmax ymax)
