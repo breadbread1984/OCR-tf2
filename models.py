@@ -11,7 +11,7 @@ def CTPN(input_shape, hidden_units = 128, output_units = 512):
   results = tf.keras.layers.Lambda(lambda x: x - tf.reshape([123.68, 116.78, 103.94], (1,1,1,3)))(inputs);
   vgg16 = tf.keras.applications.VGG16(input_tensor = results, include_top = False, weights = 'imagenet');
   # 2) input layer
-  before_reshape = tf.keras.layers.Conv2D(filters = 512, kernel_size = (3,3))(vgg16.outputs[0]);
+  before_reshape = tf.keras.layers.Conv2D(filters = 512, kernel_size = (3,3))(vgg16.get_layer('block5_conv3').output);
   # 3) bidirection LSTM
   results = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (-1, x.shape[-2], x.shape[-1])))(before_reshape); # results.shape = (batch * h, w, c = 512)
   results = tf.keras.layers.Bidirectional(layer = tf.keras.layers.LSTM(hidden_units, return_sequences = True), 
@@ -72,10 +72,11 @@ def Loss(img_shape, feat_shape, stride = 16):
 if __name__ == "__main__":
 
   assert tf.executing_eagerly();
-  a = tf.constant(np.random.normal(size = (1,512,512,3)))
-  ctpn = CTPN((512,512,3));
+  a = tf.constant(np.random.normal(size = (10,256,256,3)))
+  ctpn = CTPN((256,256,3));
   bbox_pred, cls_pred, cls_prob = ctpn(a)
-  loss = Loss((512,512,3), bbox_pred.shape);
+  loss = Loss((256,256,3), bbox_pred.shape);
   anchors = loss(bbox_pred, cls_pred);
   print(anchors);
+  print(bbox_pred.shape)
   
