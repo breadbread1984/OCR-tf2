@@ -69,14 +69,14 @@ def Loss(img_shape, feat_shape):
     )), (-1,))), arguments = {'h': img_shape[-3], 'w': img_shape[-2]})(all_anchors); # anchors = (n, 4) in sequence of (xmin ymin xmax ymax)
   # bbox overlap
   anchors = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (-1,1,4)))(anchors); # anchors.shape = (n, 1, 4)
-  gt_bbox = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (1,-1,5)))(gt_bbox); # gt_bbox.shape = (1, m. 5)
-  upperleft = tf.keras.layers.Lambda(lambda x: tf.math.maximum(x[0][...,0:2], x[1][...,0:2]))([anchors, gt_bbox]); # upperleft.shape = (n,m,2)
-  downright = tf.keras.layers.Lambda(lambda x: tf.math.minimum(x[0][...,2:4], x[1][...,2:4]))([anchors, gt_bbox]); # downright.shape = (n,m,2)
+  gt = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (1,-1,5)))(gt_bbox); # gt_bbox.shape = (1, m. 5)
+  upperleft = tf.keras.layers.Lambda(lambda x: tf.math.maximum(x[0][...,0:2], x[1][...,0:2]))([anchors, gt]); # upperleft.shape = (n,m,2)
+  downright = tf.keras.layers.Lambda(lambda x: tf.math.minimum(x[0][...,2:4], x[1][...,2:4]))([anchors, gt]); # downright.shape = (n,m,2)
   intersect_wh = tf.keras.layers.Lambda(lambda x: tf.math.maximum(x[1] - x[0], 0.))([upperleft, downright]); # intersect_wh.shape = (n,m,2)
   intersect_area = tf.keras.layers.Lambda(lambda x: x[...,0] * x[...,1])(intersect_wh); # intersect_area.shape = (n,m)
   anchors_wh = tf.keras.layers.Lambda(lambda x: x[...,2:4] - x[...,0:2])(anchors); # anchors_wh.shape = (n, 1, 2)
   anchors_area = tf.keras.layers.Lambda(lambda x: x[...,0] * x[...,1])(anchors_wh); # anchors_area.shape = (n, 1)
-  gt_bbox_wh = tf.keras.layers.Lambda(lambda x: x[...,2:4] - x[...,0:2])(gt_bbox); # gt_bbox_wh.shape = (1, m, 2)
+  gt_bbox_wh = tf.keras.layers.Lambda(lambda x: x[...,2:4] - x[...,0:2])(gt); # gt_bbox_wh.shape = (1, m, 2)
   gt_bbox_area = tf.keras.layers.Lambda(lambda x: x[...,0] * x[...,1])(gt_bbox_wh); # gt_bbox_area.shape = (1, m)
   iou = tf.keras.layers.Lambda(lambda x: x[0] / (x[1] + x[2] - x[0]))([intersect_area, anchors_area, gt_bbox_area]); # iou.shape = (n, m)
   best_anchor = tf.keras.layers.Lambda(lambda x: tf.math.argmax(iou, axis = 0, output_type = tf.int32))(iou); # best_anchor.shape = (m)
@@ -89,7 +89,7 @@ if __name__ == "__main__":
   ctpn = CTPN((256,256,3));
   bbox_pred, cls_pred, cls_prob = ctpn(a)
   loss = Loss((256,256,3), bbox_pred.shape);
-  b = tf.constant(np.random.normal(size = (10,5)));
+  b = tf.constant(np.random.normal(size = (10,5)), dtype = tf.float32);
   anchors = loss([bbox_pred, cls_pred, b]);
   print(anchors);
   
