@@ -12,7 +12,7 @@ def CTPN(input_shape, hidden_units = 128, output_units = 512):
   vgg16 = tf.keras.applications.VGG16(input_tensor = results, include_top = False, weights = 'imagenet');
   # 2) input layer
   before_reshape = tf.keras.layers.Conv2D(filters = 512, kernel_size = (3,3))(vgg16.get_layer('block5_conv3').output); # before_reshape.shape = (batch, h, w, c = 512)
-  # 3) bidirection LSTM
+  # 3) bidirection LSTM on every line of feature
   results = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (-1, x.shape[-2], x.shape[-1])))(before_reshape); # results.shape = (batch * h, w, c = 512)
   results = tf.keras.layers.Bidirectional(layer = tf.keras.layers.LSTM(hidden_units, return_sequences = True), 
                                          backward_layer = tf.keras.layers.LSTM(hidden_units, return_sequences = True, go_backwards = True), 
@@ -22,8 +22,9 @@ def CTPN(input_shape, hidden_units = 128, output_units = 512):
   results = tf.keras.layers.Lambda(lambda x: tf.reshape(x[0], (-1, x[1].shape[-3], x[1].shape[-2], x[0].shape[-1])))([results, before_reshape]); # results.shape = (batch, h, w, c = 512)
   # 4) output layer
   bbox_pred = tf.keras.layers.Dense(units = 10 * 4)(results); # bbox_pred.shape = (batch, h, w, c = 40)
+  bbox_pred = tf.keras.layers.Reshape((bbox_pred.shape[-3], bbox_pred.shape[-2], 10, 4))(bbox_pred); # bbox_pred.shape = (batch, h, w, anchor_num = 10, 4)
   cls_pred = tf.keras.layers.Dense(units = 10 * 2)(results);  # cls_pred.shape = (batch, h, w, c = 20)
-  cls_pred_reshape = tf.keras.layers.Reshape((cls_pred.shape[1], cls_pred.shape[2], -1, 2))(cls_pred); # cls_pred_reshape.shape = (batch, h, w * 10, 2)
+  cls_pred_reshape = tf.keras.layers.Reshape((cls_pred.shape[-3], cls_pred.shape[-2], 10, 2))(cls_pred); # cls_pred_reshape.shape = (batch, h, w, anchor_num = 10, 2)
   cls_prob = tf.keras.layers.Softmax()(cls_pred_reshape);
   
   return tf.keras.Model(inputs = inputs, outputs = (bbox_pred, cls_pred, cls_prob));
@@ -42,8 +43,8 @@ def Loss(img_shape, feat_shape, max_fg_num = 128, max_bg_num = 128, rpn_neg_thre
   anchors = np.array(anchors, dtype = np.float32); # anchors.shape = (10, 4)
   
   # graph defined from here
-  bbox_pred = tf.keras.Input((feat_shape[-3], feat_shape[-2], 40)); # bbox_pred = (1, h, w, 40)
-  cls_pred = tf.keras.Input((feat_shape[-3], feat_shape[-2], 20)); # cls_pred = (1, h, w, 20)
+  bbox_pred = tf.keras.Input((feat_shape[-3], feat_shape[-2], 10, 4)); # bbox_pred = (1, h, w, anchor_num = 10, 4)
+  cls_pred = tf.keras.Input((feat_shape[-3], feat_shape[-2], 10, 2)); # cls_pred = (1, h, w, anchor_num = 10, 2)
   gt_bbox = tf.keras.Input((5,)); # gt_bbox.shape = (n, 5) in sequence of (xmin, ymin, xmax, ymax, class)
   # anchor target layer
   grid = tf.keras.layers.Lambda(lambda x: tf.stack([
