@@ -26,7 +26,7 @@ def CTPN(input_shape, hidden_units = 128, output_units = 512):
   
   return tf.keras.Model(inputs = inputs, outputs = bbox_pred);
 
-def Loss(feat_shape, max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
+def SampleLoss(feat_shape, max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
 
   # constant anchors
   hws = [(11,16),(16,16),(23,16),(33,16),(48,16),(68,16),(97,16),(139,16),(198,16),(283,16)]; # (h,w)
@@ -40,12 +40,12 @@ def Loss(feat_shape, max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres =
   anchors = np.array(anchors, dtype = np.float32); # anchors.shape = (10, 4)
   
   # graph defined from here
-  bbox_pred = tf.keras.Input((feat_shape[-3], feat_shape[-2], 10, 6)); # bbox_pred = (1, h, w, anchor_num = 10, 4)
+  bbox_pred = tf.keras.Input((feat_shape[-4], feat_shape[-3], 10, 6), batch_size = 1); # bbox_pred = (1, h, w, anchor_num = 10, 4)
   gt_bbox = tf.keras.Input((5,)); # gt_bbox.shape = (n, 5) in sequence of (xmin, ymin, xmax, ymax, class)
   # anchor target layer
   grid = tf.keras.layers.Lambda(lambda x: tf.stack([
-    tf.tile(tf.reshape(16 * tf.range(tf.cast(x.shape[2], dtype = tf.float32), dtype = tf.float32), (1, x.shape[2])), (x.shape[1], 1)),
-    tf.tile(tf.reshape(16 * tf.range(tf.cast(x.shape[1], dtype = tf.float32), dtype = tf.float32), (x.shape[1], 1)), (1, x.shape[2]))
+    tf.tile(tf.reshape(16 * tf.range(tf.cast(x.shape[-3], dtype = tf.float32), dtype = tf.float32), (1, x.shape[-3])), (x.shape[-4], 1)),
+    tf.tile(tf.reshape(16 * tf.range(tf.cast(x.shape[-4], dtype = tf.float32), dtype = tf.float32), (x.shape[-4], 1)), (1, x.shape[-3]))
     ], axis = -1))(bbox_pred); # grid.shape = (h, w, 2) in sequence of (x,y), 16 because vgg16's block5_conv3's output size is 1 / 16 of input image size
   all_anchors = tf.keras.layers.Lambda(lambda x, anchors:
     tf.expand_dims(tf.concat([x,x], axis = -1), axis = -2) + tf.reshape(anchors, (1,1,10,4)), # shape = (1, 1, 10, 4)
@@ -79,6 +79,7 @@ def Loss(feat_shape, max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres =
                                                        true_fn = lambda: x[1],
                                                        false_fn = lambda: tf.where(tf.math.logical_and(tf.math.equal(x[1], 0), tf.math.greater(tf.random.uniform(tf.shape(x[1])), n / x[0])), -tf.ones_like(x[1]), x[1])),
                                   arguments = {'n': max_bg_anchors})([count, labels]); # labels.shape = (h, w, 10)
+  labels = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x, axis = 0))(labels); # labels.shape = (1, h, w, 10)
   # 2) get prediction
   anchors_wh = tf.keras.layers.Lambda(lambda x: tf.squeeze(x, axis = -2))(anchors_wh); # anchors_wh.shape = (h, w, 10, 2)
   anchors_centers = tf.keras.layers.Lambda(lambda x: x[0][..., 0:2] + x[1] / 2)([all_anchors, anchors_wh]); # anchors_centers.shape = (h, w, 10, 2)
@@ -88,14 +89,12 @@ def Loss(feat_shape, max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres =
   target_dxdy = tf.keras.layers.Lambda(lambda x: (x[0] - x[1]) / x[2])([best_gt_centers, anchors_centers, anchors_wh]); # target_dxdy.shape = (h, w, 10, 2)
   target_dwdh = tf.keras.layers.Lambda(lambda x: x[0] / x[1])([best_gt_wh, anchors_wh]); # target_dwdh.shape = (h, w, 10, 2)
   bbox_target = tf.keras.layers.Concatenate(axis = -1)([target_dxdy, target_dwdh]); # bbox_target.shape = (h, w, 10, 4)
+  bbox_target = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x, axis = 0))(bbox_target); # bbox_target.shape = (1, h, w, 10, 4)
   # 3) get class loss at locations without -1 label
-  cls_loss = tf.keras.layers.Lambda(lambda x: tf.keras.losses.SparseCategoricalCrossentropy(from_logits = True)(
-                                    tf.gather_nd(x[0], tf.where(tf.math.not_equal(x[0], -1))), 
-                                    tf.gather_nd(x[1][..., -2:], tf.where(tf.math.not_equal(x[0], -1)))))([labels, bbox_pred]);
+  mask = tf.keras.layers.Lambda(lambda x: tf.math.not_equal(x, -1))(labels); # mask.shape = (1, h, w, 10)
+  cls_loss = tf.keras.layers.Lambda(lambda x: tf.keras.losses.SparseCategoricalCrossentropy(from_logits = True)(tf.boolean_mask(x[1], x[0]), tf.boolean_mask(x[2][..., -2:], x[0])))([mask, labels, bbox_pred]);
   # 4) get prediction loss at locations without -1 label
-  pred_loss = tf.keras.layers.Lambda(lambda x: tf.keras.losses.MeanAbsoluteError(
-                                    tf.gather_nd(x[0], tf.where(tf.math.not_equal(x[0], -1))), 
-                                    tf.gather_nd(x[1][..., :4], tf.where(tf.math.not_equal(x[0], -1)))))([bbox_target, bbox_pred]);
+  pred_loss = tf.keras.layers.Lambda(lambda x: tf.keras.losses.MeanAbsoluteError()(tf.boolean_mask(x[1], x[0]), tf.boolean_mask(x[2][..., :4], x[0])))([mask, bbox_target, bbox_pred]);
   loss = tf.keras.layers.Lambda(lambda x: x[0] + x[1])([cls_loss, pred_loss]);
   return tf.keras.Model(inputs = (bbox_pred, gt_bbox), outputs = loss);
 
@@ -105,8 +104,8 @@ if __name__ == "__main__":
   a = tf.constant(np.random.normal(size = (10,256,256,3)))
   ctpn = CTPN((256,256,3));
   bbox_pred = ctpn(a)
-  loss = Loss(bbox_pred.shape);
+  loss = SampleLoss(bbox_pred[0:1,...].shape);
   b = tf.constant(np.random.normal(size = (10,5)), dtype = tf.float32);
-  anchors = loss([bbox_pred, b]);
+  anchors = loss([bbox_pred[0:1,...], b]);
   print(anchors);
   
