@@ -26,7 +26,7 @@ def CTPN(input_shape, hidden_units = 128, output_units = 512):
   
   return tf.keras.Model(inputs = inputs, outputs = bbox_pred);
 
-def Loss(img_shape, feat_shape, max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
+def Loss(feat_shape, max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
 
   # constant anchors
   hws = [(11,16),(16,16),(23,16),(33,16),(48,16),(68,16),(97,16),(139,16),(198,16),(283,16)]; # (h,w)
@@ -87,10 +87,17 @@ def Loss(img_shape, feat_shape, max_fg_anchors = 128, max_bg_anchors = 128, rpn_
   best_gt_centers = tf.keras.layers.Lambda(lambda x: x[0][..., 0:2] + x[1] / 2)([best_gt, best_gt_wh]); # best_gt_centers.shape = (h, w, 10, 2)
   target_dxdy = tf.keras.layers.Lambda(lambda x: (x[0] - x[1]) / x[2])([best_gt_centers, anchors_centers, anchors_wh]); # target_dxdy.shape = (h, w, 10, 2)
   target_dwdh = tf.keras.layers.Lambda(lambda x: x[0] / x[1])([best_gt_wh, anchors_wh]); # target_dwdh.shape = (h, w, 10, 2)
-  # TODO
   bbox_target = tf.keras.layers.Concatenate(axis = -1)([target_dxdy, target_dwdh]); # bbox_target.shape = (h, w, 10, 4)
-    
-  return tf.keras.Model(inputs = (bbox_pred, gt_bbox), outputs = bbox_target);
+  # 3) get class loss at locations without -1 label
+  cls_loss = tf.keras.layers.Lambda(lambda x: tf.keras.losses.SparseCategoricalCrossentropy(from_logits = True)(
+                                    tf.gather_nd(x[0], tf.where(tf.math.not_equal(x[0], -1))), 
+                                    tf.gather_nd(x[1][..., -2:], tf.where(tf.math.not_equal(x[0], -1)))))([labels, bbox_pred]);
+  # 4) get prediction loss at locations without -1 label
+  pred_loss = tf.keras.layers.Lambda(lambda x: tf.keras.losses.MeanAbsoluteError(
+                                    tf.gather_nd(x[0], tf.where(tf.math.not_equal(x[0], -1))), 
+                                    tf.gather_nd(x[1][..., :4], tf.where(tf.math.not_equal(x[0], -1)))))([bbox_target, bbox_pred]);
+  loss = tf.keras.layers.Lambda(lambda x: x[0] + x[1])([cls_loss, pred_loss]);
+  return tf.keras.Model(inputs = (bbox_pred, gt_bbox), outputs = loss);
 
 if __name__ == "__main__":
 
@@ -98,7 +105,7 @@ if __name__ == "__main__":
   a = tf.constant(np.random.normal(size = (10,256,256,3)))
   ctpn = CTPN((256,256,3));
   bbox_pred = ctpn(a)
-  loss = Loss((256,256,3), bbox_pred.shape);
+  loss = Loss(bbox_pred.shape);
   b = tf.constant(np.random.normal(size = (10,5)), dtype = tf.float32);
   anchors = loss([bbox_pred, b]);
   print(anchors);
