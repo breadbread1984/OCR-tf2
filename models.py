@@ -11,7 +11,7 @@ def CTPN(input_shape, hidden_units = 128, output_units = 512):
   results = tf.keras.layers.Lambda(lambda x: x - tf.reshape([123.68, 116.78, 103.94], (1,1,1,3)))(inputs);
   vgg16 = tf.keras.applications.VGG16(input_tensor = results, include_top = False, weights = 'imagenet');
   # 2) input layer
-  before_reshape = tf.keras.layers.Conv2D(filters = 512, kernel_size = (3,3))(vgg16.get_layer('block5_conv3').output); # before_reshape.shape = (batch, h, w, c = 512)
+  before_reshape = tf.keras.layers.Conv2D(filters = 512, kernel_size = (3,3), padding = 'same')(vgg16.get_layer('block5_conv3').output); # before_reshape.shape = (batch, h, w, c = 512)
   # 3) bidirection LSTM on every line of feature
   results = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (-1, x.shape[-2], x.shape[-1])))(before_reshape); # results.shape = (batch * h, w, c = 512)
   results = tf.keras.layers.Bidirectional(layer = tf.keras.layers.LSTM(hidden_units, return_sequences = True), 
@@ -26,7 +26,7 @@ def CTPN(input_shape, hidden_units = 128, output_units = 512):
   
   return tf.keras.Model(inputs = inputs, outputs = bbox_pred);
 
-def SampleLoss(feat_shape, max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
+def Loss(feat_shape, max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
 
   # constant anchors
   hws = [(11,16),(16,16),(23,16),(33,16),(48,16),(68,16),(97,16),(139,16),(198,16),(283,16)]; # (h,w)
@@ -41,7 +41,7 @@ def SampleLoss(feat_shape, max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_t
   
   # graph defined from here
   bbox_pred = tf.keras.Input((feat_shape[-4], feat_shape[-3], 10, 6), batch_size = 1); # bbox_pred = (1, h, w, anchor_num = 10, 4)
-  gt_bbox = tf.keras.Input((5,)); # gt_bbox.shape = (n, 5) in sequence of (xmin, ymin, xmax, ymax, class)
+  gt_bbox = tf.keras.Input((4,)); # gt_bbox.shape = (n, 4) in sequence of (xmin, ymin, xmax, ymax, class)
   # anchor target layer
   grid = tf.keras.layers.Lambda(lambda x: tf.stack([
     tf.tile(tf.reshape(16 * tf.range(tf.cast(x.shape[-3], dtype = tf.float32), dtype = tf.float32), (1, x.shape[-3])), (x.shape[-4], 1)),
@@ -52,7 +52,7 @@ def SampleLoss(feat_shape, max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_t
     arguments = {'anchors': anchors})(grid); # all_anchors.shape = (h, w, 10, 4) in sequence of (xmin ymin xmax ymax)
   # get overlaps between anchors and groud truths
   anchors = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x, axis = -2))(all_anchors); # anchors.shape = (h, w, 10, 1, 4)
-  gt = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (1,1,1,-1,5)))(gt_bbox); # gt.shape = (1, 1, 1, m, 5)
+  gt = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (1,1,1,-1,4)))(gt_bbox); # gt.shape = (1, 1, 1, m, 5)
   upperleft = tf.keras.layers.Lambda(lambda x: tf.math.maximum(x[0][...,0:2], x[1][...,0:2]))([anchors, gt]); # upperleft.shape = (h, w, 10, m, 2)
   downright = tf.keras.layers.Lambda(lambda x: tf.math.minimum(x[0][...,2:4], x[1][...,2:4]))([anchors, gt]); # downright.shape = (h, w, 10, m, 2)
   intersect_wh = tf.keras.layers.Lambda(lambda x: tf.math.maximum(x[1] - x[0], 0.))([upperleft, downright]); # intersect_wh.shape = (h, w, 10, m, 2)
@@ -104,8 +104,8 @@ if __name__ == "__main__":
   a = tf.constant(np.random.normal(size = (10,256,256,3)))
   ctpn = CTPN((256,256,3));
   bbox_pred = ctpn(a)
-  loss = SampleLoss(bbox_pred[0:1,...].shape);
-  b = tf.constant(np.random.normal(size = (10,5)), dtype = tf.float32);
+  loss = Loss(bbox_pred[0:1,...].shape);
+  b = tf.constant(np.random.normal(size = (10,4)), dtype = tf.float32);
   anchors = loss([bbox_pred[0:1,...], b]);
   print(anchors);
   
