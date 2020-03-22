@@ -7,7 +7,7 @@ def CTPN(hidden_units = 128, output_units = 512):
 
   # input image must in RGB order
   # 1) feature extraction
-  inputs = tf.keras.Input((None, None, 3));
+  inputs = tf.keras.Input((None, None, 3), batch_size = 1);
   results = tf.keras.layers.Lambda(lambda x: x - tf.reshape([123.68, 116.78, 103.94], (1,1,1,3)))(inputs);
   vgg16 = tf.keras.applications.VGG16(input_tensor = results, include_top = False, weights = 'imagenet');
   # 2) input layer
@@ -25,6 +25,41 @@ def CTPN(hidden_units = 128, output_units = 512):
   bbox_pred = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (-1, tf.shape(x)[-3], tf.shape(x)[-2], 10, 6)))(bbox_pred); # bbox_pred.shape = (batch, h, w, anchor_num = 10, 6) in sequence of (dx dy dw dh logits0 logits1)
   
   return tf.keras.Model(inputs = inputs, outputs = bbox_pred);
+
+def OutputParser():
+    
+  # constant anchors
+  # anchor corner coordinates with respect to upper left corner of every grid
+  hws = [(11,16),(16,16),(23,16),(33,16),(48,16),(68,16),(97,16),(139,16),(198,16),(283,16)]; # (h,w)
+  anchors = list();
+  for hw in hws:
+    h, w = hw;
+    x_ctr = (0 + 15) * 0.5;
+    y_ctr = (0 + 15) * 0.5;
+    scaled_anchor = (x_ctr - w / 2, y_ctr - h / 2, x_ctr + w / 2, y_ctr + h / 2); # xmin ymin xmax ymax
+    anchors.append(scaled_anchor);
+  anchors = np.array(anchors, dtype = np.float32); # anchors.shape = (10, 4)
+
+  bbox_pred = tf.keras.Input((None, None, 10, 6), batch_size = 1);
+  # anchor target layer
+  grid = tf.keras.layers.Lambda(lambda x: tf.stack([
+    tf.tile(tf.reshape(16 * tf.range(tf.cast(tf.shape(x)[-3], dtype = tf.float32), dtype = tf.float32), (1, tf.shape(x)[-3])), (tf.shape(x)[-4], 1)),
+    tf.tile(tf.reshape(16 * tf.range(tf.cast(tf.shape(x)[-4], dtype = tf.float32), dtype = tf.float32), (tf.shape(x)[-4], 1)), (1, tf.shape(x)[-3]))
+    ], axis = -1))(bbox_pred); # grid.shape = (h, w, 2) in sequence of (x,y), 16 because vgg16's block5_conv3's output size is 1 / 16 of input image size
+  all_anchors = tf.keras.layers.Lambda(lambda x, anchors:
+    tf.expand_dims(tf.concat([x,x], axis = -1), axis = -2) + tf.reshape(anchors, (1,1,10,4)), # shape = (1, 1, 10, 4)
+    arguments = {'anchors': anchors})(grid); # all_anchors.shape = (h, w, 10, 4) in sequence of (xmin ymin xmax ymax)
+  scores = tf.keras.layers.Lambda(lambda x: tf.keras.layers.Softmax()(x[0,...,-2:])[...,1:2])(bbox_pred); # score.shape = (h, w, 10, 1)
+  # transform relative to absolute representation
+  anchors_wh = tf.keras.layers.Lambda(lambda x: x[...,2:4] - x[...,0:2] + 1)(all_anchors); # anchors_wh.shape = (h, w, 10, 2)
+  anchors_centers = tf.keras.layers.Lambda(lambda x: x[0][..., 0:2] + x[1] / 2)([all_anchors, anchors_wh]); # anchors_centers.shape = (h, w, 10, 2)
+  target_centers = tf.keras.layers.Lambda(lambda x: x[0][0,...,:2] * x[1] + x[2])([bbox_pred, anchors_wh, anchors_centers]); # target_centers.shape = (h, w, 10, 2)
+  target_wh = tf.keras.layers.Lambda(lambda x: tf.math.exp(x[0][0,...,2:4]) * x[1])([bbox_pred, anchors_wh]); # target_wh.shape = (h, w, 10, 2)
+  upperleft = tf.keras.layers.Lambda(lambda x: x[0] - x[1] / 2)([target_centers, target_wh]); # upperleft.shape = (h, w, 10, 2)
+  downright = tf.keras.layers.Lambda(lambda x: x[0] + x[1] / 2)([target_centers, target_wh]); # downright.shape = (h, w, 10, 2)
+  bbox = tf.keras.layers.Concatenate(axis = -1)([upperleft, downright]); # bbox.shape = (h, w, 10, 4)
+  bbox = tf.keras.layers.Lambda(lambda x: tf.clip_by_value(x, ))(bbox);
+  # TODO:
 
 def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
 
@@ -87,8 +122,9 @@ def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_po
   best_gt = tf.keras.layers.Lambda(lambda x: tf.gather(tf.squeeze(x[1], axis = 0), x[0]))([best_gt_idx, gt_bbox]); # best_gt.shape = (h, w, 10, 4)
   best_gt_wh = tf.keras.layers.Lambda(lambda x: x[..., 2:4] - x[..., 0:2] + 1)(best_gt); # best_gt_wh.shape = (h, w, 10, 2)
   best_gt_centers = tf.keras.layers.Lambda(lambda x: x[0][..., 0:2] + x[1] / 2)([best_gt, best_gt_wh]); # best_gt_centers.shape = (h, w, 10, 2)
+  # transform absolute to relative represention
   target_dxdy = tf.keras.layers.Lambda(lambda x: (x[0] - x[1]) / x[2])([best_gt_centers, anchors_centers, anchors_wh]); # target_dxdy.shape = (h, w, 10, 2)
-  target_dwdh = tf.keras.layers.Lambda(lambda x: x[0] / x[1])([best_gt_wh, anchors_wh]); # target_dwdh.shape = (h, w, 10, 2)
+  target_dwdh = tf.keras.layers.Lambda(lambda x: tf.math.log(x[0] / x[1]))([best_gt_wh, anchors_wh]); # target_dwdh.shape = (h, w, 10, 2)
   bbox_target = tf.keras.layers.Concatenate(axis = -1)([target_dxdy, target_dwdh]); # bbox_target.shape = (h, w, 10, 4)
   bbox_target = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x, axis = 0))(bbox_target); # bbox_target.shape = (1, h, w, 10, 4)
   # 3) get class loss at locations without -1 label
