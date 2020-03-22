@@ -35,7 +35,7 @@ def main():
       print('Step #%d Loss: %.6f lr: %.6f' % (optimizer.iterations, avg_loss.result(), optimizer._hyper['learning_rate'](optimizer.iterations)));
       if avg_loss.result() < 0.01: break;
       avg_loss.reset_states();
-    grads = tape.gradient(l, model.trainable_variables);
+    grads = tape.gradient(l, ctpn.trainable_variables);
     optimizer.apply_gradients(zip(grads, model.trainable_variables));
     # save model
     if tf.equal(optimizer.iterations % 100, 0):

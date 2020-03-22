@@ -29,6 +29,7 @@ def CTPN(hidden_units = 128, output_units = 512):
 def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
 
   # constant anchors
+  # anchor corner coordinates with respect to upper left corner of every grid
   hws = [(11,16),(16,16),(23,16),(33,16),(48,16),(68,16),(97,16),(139,16),(198,16),(283,16)]; # (h,w)
   anchors = list();
   for hw in hws:
@@ -52,10 +53,10 @@ def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_po
     arguments = {'anchors': anchors})(grid); # all_anchors.shape = (h, w, 10, 4) in sequence of (xmin ymin xmax ymax)
   # get overlaps between anchors and groud truths
   all_anchors_reshape = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x, axis = -2))(all_anchors); # all_anchors_reshape.shape = (h, w, 10, 1, 4)
-  gt = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (1,1,1,-1,4)))(gt_bbox); # gt.shape = (1, 1, 1, m, 5)
+  gt = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (1,1,1,-1,4)))(gt_bbox); # gt.shape = (1, 1, 1, m, 4)
   upperleft = tf.keras.layers.Lambda(lambda x: tf.math.maximum(x[0][...,0:2], x[1][...,0:2]))([all_anchors_reshape, gt]); # upperleft.shape = (h, w, 10, m, 2)
   downright = tf.keras.layers.Lambda(lambda x: tf.math.minimum(x[0][...,2:4], x[1][...,2:4]))([all_anchors_reshape, gt]); # downright.shape = (h, w, 10, m, 2)
-  intersect_wh = tf.keras.layers.Lambda(lambda x: tf.math.maximum(x[1] - x[0], 0.))([upperleft, downright]); # intersect_wh.shape = (h, w, 10, m, 2)
+  intersect_wh = tf.keras.layers.Lambda(lambda x: tf.math.maximum(x[1] - x[0] + 1, 0.))([upperleft, downright]); # intersect_wh.shape = (h, w, 10, m, 2)
   intersect_area = tf.keras.layers.Lambda(lambda x: x[...,0] * x[...,1])(intersect_wh); # intersect_area.shape = (h, w, 10, m)
   anchors_wh = tf.keras.layers.Lambda(lambda x: x[...,2:4] - x[...,0:2] + 1)(all_anchors_reshape); # anchors_wh.shape = (h, w, 10, 1, 2)
   anchors_area = tf.keras.layers.Lambda(lambda x: x[...,0] * x[...,1])(anchors_wh); # anchors_area.shape = (h, w, 10, 1)
@@ -83,7 +84,7 @@ def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_po
   # 2) get prediction
   anchors_wh = tf.keras.layers.Lambda(lambda x: tf.squeeze(x, axis = -2))(anchors_wh); # anchors_wh.shape = (h, w, 10, 2)
   anchors_centers = tf.keras.layers.Lambda(lambda x: x[0][..., 0:2] + x[1] / 2)([all_anchors, anchors_wh]); # anchors_centers.shape = (h, w, 10, 2)
-  best_gt = tf.keras.layers.Lambda(lambda x: tf.gather(tf.squeeze(x[1], axis = 0), x[0]))([best_gt_idx, gt_bbox]); # best_gt.shape = (h, w, 10, 5)
+  best_gt = tf.keras.layers.Lambda(lambda x: tf.gather(tf.squeeze(x[1], axis = 0), x[0]))([best_gt_idx, gt_bbox]); # best_gt.shape = (h, w, 10, 4)
   best_gt_wh = tf.keras.layers.Lambda(lambda x: x[..., 2:4] - x[..., 0:2] + 1)(best_gt); # best_gt_wh.shape = (h, w, 10, 2)
   best_gt_centers = tf.keras.layers.Lambda(lambda x: x[0][..., 0:2] + x[1] / 2)([best_gt, best_gt_wh]); # best_gt_centers.shape = (h, w, 10, 2)
   target_dxdy = tf.keras.layers.Lambda(lambda x: (x[0] - x[1]) / x[2])([best_gt_centers, anchors_centers, anchors_wh]); # target_dxdy.shape = (h, w, 10, 2)
@@ -107,7 +108,5 @@ if __name__ == "__main__":
   bbox_pred = ctpn(a)
   loss = Loss();
   b = tf.constant(np.random.normal(size = (1,10,4)), dtype = tf.float32);
-  anchors = loss([bbox_pred[0:1,...], b]);
-  print(anchors);
-  print(bbox_pred)
-  
+  l = loss([bbox_pred[0:1,...], b]);
+  print(l);
