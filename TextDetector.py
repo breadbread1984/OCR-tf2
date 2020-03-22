@@ -30,7 +30,9 @@ class TextDetector(object):
   def detect(self, img):
 
     input = cv2.cvtColor(img, cv2.COLOR_BRG2RGB);
-    
+    input, scale = self.resize(input);
+    inputs = tf.cast(tf.expand_dims(input, axis = 0), dtype = tf.float32); # inputs.shape = (1, h, w, c)
+    bbox_pred = self.ctpn(inputs); # bbox_pred = (1, h / 16, w / 16, 10, 6)
 
 if __name__ == "__main__":
 
