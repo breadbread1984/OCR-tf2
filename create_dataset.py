@@ -13,7 +13,7 @@ def parse_function(serialized_example):
     serialized_example,
     features = {
       'data': tf.io.FixedLenFeature((), dtype = tf.string),
-      'shape': tf.io.FixedLenFeature((2,), dtype = tf.int64),
+      'shape': tf.io.FixedLenFeature((3,), dtype = tf.int64),
       'objects': tf.io.VarLenFeature(dtype = tf.float32),
       'obj_num': tf.io.FixedLenFeature((), dtype = tf.int64)
     }
@@ -21,6 +21,7 @@ def parse_function(serialized_example):
   shape = tf.cast(feature['shape'], dtype = tf.int32);
   data = tf.io.decode_jpeg(feature['data']);
   data = tf.reshape(data, shape);
+  data = tf.cast(data, dtype = tf.float32);
   obj_num = tf.cast(feature['obj_num'], dtype = tf.int32);
   objects = tf.sparse.to_dense(feature['objects'], default_value = 0);
   objects = tf.reshape(objects, (obj_num, 4));
