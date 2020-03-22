@@ -11,17 +11,17 @@ def CTPN(hidden_units = 128, output_units = 512):
   results = tf.keras.layers.Lambda(lambda x: x - tf.reshape([123.68, 116.78, 103.94], (1,1,1,3)))(inputs);
   vgg16 = tf.keras.applications.VGG16(input_tensor = results, include_top = False, weights = 'imagenet');
   # 2) input layer
-  before_reshape = tf.keras.layers.Conv2D(filters = 512, kernel_size = (3,3), padding = 'same')(vgg16.get_layer('block5_conv3').output); # before_reshape.shape = (batch, h, w, c = 512)
+  before_reshape = tf.keras.layers.Conv2D(filters = 512, kernel_size = (3,3), padding = 'same', kernel_regularizer = tf.keras.regularizers.l2(l = 5e-3))(vgg16.get_layer('block5_conv3').output); # before_reshape.shape = (batch, h, w, c = 512)
   # 3) bidirection LSTM on every line of feature
   results = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (-1, tf.shape(x)[-2], x.shape[-1])))(before_reshape); # results.shape = (batch * h, w, c = 512)
-  results = tf.keras.layers.Bidirectional(layer = tf.keras.layers.LSTM(hidden_units, return_sequences = True), 
-                                         backward_layer = tf.keras.layers.LSTM(hidden_units, return_sequences = True, go_backwards = True), 
+  results = tf.keras.layers.Bidirectional(layer = tf.keras.layers.LSTM(hidden_units, return_sequences = True, kernel_regularizer = tf.keras.regularizers.l2(l = 5e-3)), 
+                                         backward_layer = tf.keras.layers.LSTM(hidden_units, return_sequences = True, go_backwards = True, kernel_regularizer = tf.keras.regularizers.l2(l = 5e-3)), 
                                          input_shape = (-1, hidden_units),
                                          merge_mode = 'concat')(results);                             # results.shape = (batch * h, w, c = 128 * 2)
-  results = tf.keras.layers.Dense(units = output_units)(results);                                     # results.shape = (batch * h, w, c = 512)
+  results = tf.keras.layers.Dense(units = output_units, kernel_regularizer = tf.keras.regularizers.l2(l = 5e-3))(results);                                     # results.shape = (batch * h, w, c = 512)
   results = tf.keras.layers.Lambda(lambda x: tf.reshape(x[0], (-1, tf.shape(x[1])[-3], tf.shape(x[1])[-2], x[0].shape[-1])))([results, before_reshape]); # results.shape = (batch, h, w, c = 512)
   # 4) output layer
-  bbox_pred = tf.keras.layers.Dense(units = 10 * 6)(results); # bbox_pred.shape = (batch, h, w, c = 60)
+  bbox_pred = tf.keras.layers.Dense(units = 10 * 6, kernel_regularizer = tf.keras.regularizers.l2(l = 5e-3))(results); # bbox_pred.shape = (batch, h, w, c = 60)
   bbox_pred = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (-1, tf.shape(x)[-3], tf.shape(x)[-2], 10, 6)))(bbox_pred); # bbox_pred.shape = (batch, h, w, anchor_num = 10, 6) in sequence of (dx dy dw dh logits0 logits1)
   
   return tf.keras.Model(inputs = inputs, outputs = bbox_pred);
