@@ -22,7 +22,7 @@ def CTPN(hidden_units = 128, output_units = 512):
   results = tf.keras.layers.Lambda(lambda x: tf.reshape(x[0], (-1, tf.shape(x[1])[-3], tf.shape(x[1])[-2], x[0].shape[-1])))([results, before_reshape]); # results.shape = (batch, h, w, c = 512)
   # 4) output layer
   bbox_pred = tf.keras.layers.Dense(units = 10 * 6)(results); # bbox_pred.shape = (batch, h, w, c = 60)
-  bbox_pred = tf.keras.layers.Reshape((tf.shape(bbox_pred)[-3], tf.shape(bbox_pred)[-2], 10, 6))(bbox_pred); # bbox_pred.shape = (batch, h, w, anchor_num = 10, 6) in sequence of (dx dy dw dh logits0 logits1)
+  bbox_pred = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (-1, tf.shape(x)[-3], tf.shape(x)[-2], 10, 6)))(bbox_pred); # bbox_pred.shape = (batch, h, w, anchor_num = 10, 6) in sequence of (dx dy dw dh logits0 logits1)
   
   return tf.keras.Model(inputs = inputs, outputs = bbox_pred);
 
