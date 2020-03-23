@@ -58,7 +58,7 @@ def OutputParser():
   upperleft = tf.keras.layers.Lambda(lambda x: x[0] - x[1] / 2)([target_centers, target_wh]); # upperleft.shape = (h, w, 10, 2)
   downright = tf.keras.layers.Lambda(lambda x: x[0] + x[1] / 2)([target_centers, target_wh]); # downright.shape = (h, w, 10, 2)
   bbox = tf.keras.layers.Concatenate(axis = -1)([upperleft, downright]); # bbox.shape = (h, w, 10, 4)
-  bbox = tf.keras.layers.Lambda(lambda x: tf.clip_by_value(x, ))(bbox);
+  #bbox = tf.keras.layers.Lambda(lambda x: tf.clip_by_value(x, ))(bbox);
   # TODO:
 
 def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
@@ -115,6 +115,20 @@ def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_po
                                                        true_fn = lambda: x[1],
                                                        false_fn = lambda: tf.where(tf.math.logical_and(tf.math.equal(x[1], 0), tf.math.greater(tf.random.uniform(tf.shape(x[1])), n / x[0])), -tf.ones_like(x[1]), x[1])),
                                   arguments = {'n': max_bg_anchors})([count, labels]); # labels.shape = (h, w, 10)
+  # labels of anchors touching the borders are set to -1
+  labels = tf.keras.layers.Lambda(lambda x: tf.where(
+    tf.math.logical_and(
+      tf.math.logical_and(
+        tf.math.logical_and(tf.math.greater_equal(x[1][...,0], 0), tf.math.less(x[1][...,0], tf.cast(16 * tf.shape(x[1])[-3], dtype = tf.float32))),
+        tf.math.logical_and(tf.math.greater_equal(x[1][...,1], 0), tf.math.less(x[1][...,1], tf.cast(16 * tf.shape(x[1])[-4], dtype = tf.float32)))
+      ),
+      tf.math.logical_and(
+        tf.math.logical_and(tf.math.greater_equal(x[1][...,2], 0), tf.math.less(x[1][...,2], tf.cast(16 * tf.shape(x[1])[-3], dtype = tf.float32))),
+        tf.math.logical_and(tf.math.greater_equal(x[1][...,3], 0), tf.math.less(x[1][...,3], tf.cast(16 * tf.shape(x[1])[-4], dtype = tf.float32)))
+      )
+    ),
+    x[0], -tf.ones_like(x[0])
+  ))([labels, all_anchors]);
   labels = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x, axis = 0))(labels); # labels.shape = (1, h, w, 10)
   # 2) get prediction
   anchors_wh = tf.keras.layers.Lambda(lambda x: tf.squeeze(x, axis = -2))(anchors_wh); # anchors_wh.shape = (h, w, 10, 2)
