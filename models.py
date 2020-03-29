@@ -26,7 +26,7 @@ def CTPN(hidden_units = 128, output_units = 512):
   
   return tf.keras.Model(inputs = inputs, outputs = bbox_pred);
 
-def OutputParser(min_size = 8):
+def OutputParser(min_size = 8, nms_thres = 0.7):
     
   # constant anchors
   # anchor corner coordinates with respect to upper left corner of every grid
@@ -57,7 +57,7 @@ def OutputParser(min_size = 8):
   target_wh = tf.keras.layers.Lambda(lambda x: tf.math.exp(x[0][0,...,2:4]) * x[1])([bbox_pred, anchors_wh]); # target_wh.shape = (h, w, 10, 2)
   upperleft = tf.keras.layers.Lambda(lambda x: x[0] - x[1] / 2)([target_centers, target_wh]); # upperleft.shape = (h, w, 10, 2)
   downright = tf.keras.layers.Lambda(lambda x: x[0] + x[1] / 2)([target_centers, target_wh]); # downright.shape = (h, w, 10, 2)
-  bbox = tf.keras.layers.Concatenate(axis = -1)([upperleft, downright]); # bbox.shape = (h, w, 10, 4)
+  bbox = tf.keras.layers.Concatenate(axis = -1)([upperleft, downright]); # bbox.shape = (h, w, 10, 4) in sequence of (xmin ymin xmax ymax)
   # make all proposals within border
   bbox = tf.keras.layers.Lambda(lambda x: tf.clip_by_value(x, [0,0,0,0], 16 * tf.cast([tf.shape(x)[-3],tf.shape(x)[-4],tf.shape(x)[-3],tf.shape(x)[-4]], dtype = tf.float32) - 1))(bbox);
   # clip boxes to make all outputs within border
@@ -77,8 +77,30 @@ def OutputParser(min_size = 8):
   idx = tf.keras.layers.Lambda(lambda x: tf.argsort(x, axis = 0))(filtered_bbox_scores); # idx.shape = (n, 1)
   sorted_bbox = tf.keras.layers.Lambda(lambda x: tf.gather_nd(x[0], x[1]))([filtered_bbox, idx]); # sorted_bbox.shape = (n, 4)
   sorted_bbox_scores = tf.keras.layers.Lambda(lambda x: tf.gather_nd(x[0], x[1]))([filtered_bbox_scores, idx]); # sorted_bbox_scores.shape = (n, 1)
-  
-  return tf.keras.Model(inputs = bbox_pred, outputs = (sorted_bbox, sorted_bbox_scores));
+  def condition(index, bbox, scores):
+    return index < tf.shape(bbox)[0];
+  def body(index, bbox, scores):
+    current_bbox = tf.expand_dims(bbox[index:index + 1,...], axis = 1); # current_bbox.shape = (1, 1, 4)
+    following_bbox = tf.expand_dims(bbox[index + 1:,...], axis = 0); # following_bbox.shape = (1, m, 4)
+    following_scores = tf.expand_dims(scores[index:,...], axis = 0); # following_scores.shape = (1, m, 1)
+    upperleft = tf.math.maximum(current_bbox[...,:2], following_bbox[...,:2]); # upperleft.shape = (1, m, 2)
+    downright = tf.math.minimum(current_bbox[...,2:], following_bbox[...,2:]); # downright.shape = (1, m, 2)
+    intersect_wh = tf.math.maximum(downright - upperleft + 1, 0.); # intersect_wh.shape = (1, m, 2)
+    intersect_area = intersect_wh[...,0] * intersect_wh[...,1]; # intersect_area.shape = (1, m)
+    current_wh = tf.math.maximum(current_bbox[...,2:] - current_bbox[...,:2] + 1, 0.); # current_wh.shape = (1, 1, 2)
+    current_area = current_wh[...,0] * current_wh[...,1]; # current_area.shape = (1, 1)
+    following_wh = tf.math.maximum(following_bbox[...,2:] - following_bbox[...,:2] + 1, 0.); # following_wh.shape = (1, m, 2)
+    following_area = following_wh[...,0] * following_wh[...,1]; # following_area.shape = (1, m)
+    iou = intersect_area / (current_area + following_area - intersect_area); # iou.shape = (1, m)
+    mask = tf.where(tf.math.less(iou, nms_thres)); # mask.shape = (1, m)
+    filtered_following_bbox = tf.gather_nd(following_bbox, mask); # filtered_following_bbox.shape = (n, 4)
+    filtered_following_scores = tf.gather_nd(following_scores, mask); # filtered_following_scores.shape = (n, 1)
+    bbox = tf.concat([bbox[:index + 1,...], filtered_following_bbox], axis = 0); # bbox.shape = (m', 4)
+    scores = tf.concat([scores[:index+1,...], filtered_following_scores], axis = 0); # scores.shape = (m', 1)
+    index += 1;
+    return index, bbox, scores;
+  _, nms_bbox, nms_bbox_scores = tf.keras.layers.Lambda(lambda x: tf.while_loop(condition, body, loop_vars = [tf.constant(0), x[0], x[1]], shape_invariants = [tf.TensorShape([]), tf.TensorShape([None, 4]), tf.TensorShape([None, 1])]))([sorted_bbox, sorted_bbox_scores]);
+  return tf.keras.Model(inputs = bbox_pred, outputs = (nms_bbox, nms_bbox_scores));
   # TODO:
 
 def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
