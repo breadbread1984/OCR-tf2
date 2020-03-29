@@ -26,7 +26,7 @@ def CTPN(hidden_units = 128, output_units = 512):
   
   return tf.keras.Model(inputs = inputs, outputs = bbox_pred);
 
-def OutputParser(min_size = 8, nms_thres = 0.7):
+def OutputParser(min_size = 8, pre_nms_topn = 12000, post_nms_topn = 1000, nms_thres = 0.7):
     
   # constant anchors
   # anchor corner coordinates with respect to upper left corner of every grid
@@ -75,8 +75,8 @@ def OutputParser(min_size = 8, nms_thres = 0.7):
   filtered_bbox_scores = tf.keras.layers.Lambda(lambda x: tf.boolean_mask(x[0], x[1]))([clipped_bbox_scores, mask]); # filtered_bbox_scores.shape = (n, 1)
   # nms
   idx = tf.keras.layers.Lambda(lambda x: tf.argsort(x, axis = 0))(filtered_bbox_scores); # idx.shape = (n, 1)
-  sorted_bbox = tf.keras.layers.Lambda(lambda x: tf.gather_nd(x[0], x[1]))([filtered_bbox, idx]); # sorted_bbox.shape = (n, 4)
-  sorted_bbox_scores = tf.keras.layers.Lambda(lambda x: tf.gather_nd(x[0], x[1]))([filtered_bbox_scores, idx]); # sorted_bbox_scores.shape = (n, 1)
+  sorted_bbox = tf.keras.layers.Lambda(lambda x,n : tf.gather_nd(x[0], x[1])[:n,...], arguments = {'n': pre_nms_topn})([filtered_bbox, idx]); # sorted_bbox.shape = (n, 4)
+  sorted_bbox_scores = tf.keras.layers.Lambda(lambda x, n: tf.gather_nd(x[0], x[1])[:n,...], arguments = {'n': pre_nms_topn})([filtered_bbox_scores, idx]); # sorted_bbox_scores.shape = (n, 1)
   def condition(index, bbox, scores):
     return index < tf.shape(bbox)[0];
   def body(index, bbox, scores):
@@ -100,6 +100,8 @@ def OutputParser(min_size = 8, nms_thres = 0.7):
     index += 1;
     return index, bbox, scores;
   _, nms_bbox, nms_bbox_scores = tf.keras.layers.Lambda(lambda x: tf.while_loop(condition, body, loop_vars = [tf.constant(0), x[0], x[1]], shape_invariants = [tf.TensorShape([]), tf.TensorShape([None, 4]), tf.TensorShape([None, 1])]))([sorted_bbox, sorted_bbox_scores]);
+  nms_bbox = tf.keras.layers.Lambda(lambda x, n: x[:n, ...], arguments = {'n': post_nms_topn})(nms_bbox);
+  nms_bbox_scores = tf.keras.layers.Lambda(lambda x, n: x[:n, ...], arguments = {'n': post_nms_topn})(nms_bbox_scores);
   return tf.keras.Model(inputs = bbox_pred, outputs = (nms_bbox, nms_bbox_scores));
   # TODO:
 
