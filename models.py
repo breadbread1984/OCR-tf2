@@ -26,7 +26,7 @@ def CTPN(hidden_units = 128, output_units = 512):
   
   return tf.keras.Model(inputs = inputs, outputs = bbox_pred);
 
-def OutputParser():
+def OutputParser(min_size = 8):
     
   # constant anchors
   # anchor corner coordinates with respect to upper left corner of every grid
@@ -40,7 +40,7 @@ def OutputParser():
     anchors.append(scaled_anchor);
   anchors = np.array(anchors, dtype = np.float32); # anchors.shape = (10, 4)
 
-  bbox_pred = tf.keras.Input((None, None, 10, 6), batch_size = 1);
+  bbox_pred = tf.keras.Input((None, None, 10, 6), batch_size = 1); # bbox_pred.shape = (h, w, 10, 6)
   # anchor target layer
   grid = tf.keras.layers.Lambda(lambda x: tf.stack([
     tf.tile(tf.reshape(16 * tf.range(tf.cast(tf.shape(x)[-3], dtype = tf.float32), dtype = tf.float32), (1, tf.shape(x)[-3])), (tf.shape(x)[-4], 1)),
@@ -58,7 +58,23 @@ def OutputParser():
   upperleft = tf.keras.layers.Lambda(lambda x: x[0] - x[1] / 2)([target_centers, target_wh]); # upperleft.shape = (h, w, 10, 2)
   downright = tf.keras.layers.Lambda(lambda x: x[0] + x[1] / 2)([target_centers, target_wh]); # downright.shape = (h, w, 10, 2)
   bbox = tf.keras.layers.Concatenate(axis = -1)([upperleft, downright]); # bbox.shape = (h, w, 10, 4)
-  #bbox = tf.keras.layers.Lambda(lambda x: tf.clip_by_value(x, ))(bbox);
+  # make all proposals within border
+  bbox = tf.keras.layers.Lambda(lambda x: tf.clip_by_value(x, [0,0,0,0], 16 * tf.cast([tf.shape(x)[-3],tf.shape(x)[-4],tf.shape(x)[-3],tf.shape(x)[-4]], dtype = tf.float32) - 1))(bbox);
+  # clip boxes to make all outputs within border
+  bbox_wh = tf.keras.layers.Lambda(lambda x: x[...,2:4] - x[...,0:2] + 1)(bbox); # bbox_wh.shape = (h, w, 10, 2)
+  mask = tf.keras.layers.Lambda(lambda x: tf.math.logical_and(
+    tf.math.logical_and(tf.math.greater_equal(x[...,0], 0), tf.math.less(x[...,0], tf.cast(16 * tf.shape(x)[-3], dtype = tf.float32))),
+    tf.math.logical_and(tf.math.greater_equal(x[...,1], 0), tf.math.less(x[...,1], tf.cast(16 * tf.shape(x)[-4], dtype = tf.float32)))
+  ))(bbox_wh); # mask.shape = (h, w, 10)
+  clipped_bbox = tf.keras.layers.Lambda(lambda x: tf.boolean_mask(x[0], x[1]))([bbox, mask]); # clipped_bbox.shape = (n, 4)
+  clipped_bbox_scores = tf.keras.layers.Lambda(lambda x: tf.boolean_mask(x[0], x[1]))([scores, mask]); # clipped_bbox_scores.shape = (n, 1)
+  clipped_bbox_wh = tf.keras.layers.Lambda(lambda x: x[...,2:4] - x[...,0:2] + 1)(clipped_bbox); # clipped_bbox_wh.shape = (n, 2)
+  # filter boxes
+  mask = tf.keras.layers.Lambda(lambda x, m: tf.math.logical_and(tf.math.greater_equal(x[...,0], m), tf.math.greater_equal(x[...,1], m)), arguments = {'m': min_size})(clipped_bbox_wh); # mask.shape = (n)
+  filtered_bbox = tf.keras.layers.Lambda(lambda x: tf.boolean_mask(x[0], x[1]))([clipped_bbox, mask]); # filtered_bbox.shape = (n, 2)
+  filtered_bbox_scores = tf.keras.layers.Lambda(lambda x: tf.boolean_mask(x[0], x[1]))([clipped_bbox_scores, mask]); # filtered_bbox_scores.shape = (n, 1)
+  
+  return tf.keras.Model(inputs = bbox_pred, outputs = (filtered_bbox, filtered_bbox_scores));
   # TODO:
 
 def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
@@ -156,7 +172,10 @@ if __name__ == "__main__":
   ctpn = CTPN();
   ctpn.save('ctpn.h5')
   bbox_pred = ctpn(a)
+  parser = OutputParser();
+  b = parser(bbox_pred);
+  print(b);
   loss = Loss();
   b = tf.constant(np.random.normal(size = (1,10,4)), dtype = tf.float32);
   l = loss([bbox_pred[0:1,...], b]);
-  print(l);
+  #print(l);
