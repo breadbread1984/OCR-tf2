@@ -103,7 +103,6 @@ def OutputParser(min_size = 8, pre_nms_topn = 12000, post_nms_topn = 1000, nms_t
   nms_bbox = tf.keras.layers.Lambda(lambda x, n: x[:n, ...], arguments = {'n': post_nms_topn})(nms_bbox);
   nms_bbox_scores = tf.keras.layers.Lambda(lambda x, n: x[:n, ...], arguments = {'n': post_nms_topn})(nms_bbox_scores);
   return tf.keras.Model(inputs = bbox_pred, outputs = (nms_bbox, nms_bbox_scores));
-  # TODO:
 
 def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
 

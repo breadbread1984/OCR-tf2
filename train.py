@@ -9,8 +9,9 @@ from models import CTPN, Loss;
 dataset_size = 3421;
 
 def main():
-    
+
   ctpn = CTPN();
+  parser = OutputParser();
   loss = Loss();
   optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.ExponentialDecay(1e-3, decay_steps = 60000, decay_rate = 0.5));
   # load dataset
