@@ -140,7 +140,7 @@ def Connector(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_v_o
     return index, bbox, scores;
   _, nms_bbox, nms_bbox_scores = tf.keras.layers.Lambda(lambda x: tf.while_loop(condition, body, loop_vars = [tf.constant(0), x[0], x[1]], shape_invariants = [tf.TensorShape([]), tf.TensorShape([None, 4]), tf.TensorShape([None, 1])]))([sorted_bbox, sorted_bbox_scores]);
   # construct graph
-  minx_diff = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x[...,0], axis = 1) - tf.expand_dims(x[..., 0], axis = 0))(nms_bbox); # successor_mask.shape = (m',m')
+  minx_diff = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x[..., 0], axis = 1) - tf.expand_dims(x[..., 0], axis = 0))(nms_bbox); # successor_mask.shape = (m',m')
   # overlap
   upperleft_h = tf.keras.layers.Lambda(lambda x: tf.math.maximum(tf.expand_dims(x[...,1], axis = 0), tf.expand_dims(x[...,1], axis = 1)))(nms_bbox); # upperleft.shape = (m',m')
   downright_h = tf.keras.layers.Lambda(lambda x: tf.math.minimum(tf.expand_dims(x[...,3], axis = 0), tf.expand_dims(x[...,3], axis = 1)))(nms_bbox); # downright.shape = (m',m')
@@ -165,12 +165,13 @@ def Connector(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_v_o
     mask = x[0];
     scores = x[1];
     masked_scores = tf.where(mask, scores, tf.zeros_like(scores));
-    max_index = tf.cond(tf.math.reduce_any(mask), true_fn = lambda: tf.math.argmax(masked_scores), false_fn = lambda: tf.constant(-1, dtype = tf.int64));
-    return max_index;
-  max_precursor_index = tf.keras.layers.Lambda(lambda x: tf.map_fn(max_by_row, (x[0], x[1]), dtype = tf.int64))([is_successor, row_multiplied_scores]);
-  max_successor_index = tf.keras.layers.Lambda(lambda x: tf.map_fn(max_by_row, (x[0], x[1]), dtype = tf.int64))([is_precursor, row_multiplied_scores]);
-  # TODO
-  return tf.keras.Model(inputs = (bbox, scores), outputs = max_successor_index);
+    max_mask = tf.cond(tf.math.reduce_any(mask), true_fn = lambda: tf.one_hot(tf.math.argmax(masked_scores), tf.shape(mask)[0]), false_fn = lambda: tf.zeros_like(mask, dtype = tf.float32));
+    max_mask = tf.cast(max_mask, dtype = tf.bool);
+    return max_mask;
+  max_precursor_mask = tf.keras.layers.Lambda(lambda x: tf.map_fn(max_by_row, (x[0], x[1]), dtype = tf.bool))([is_successor, row_multiplied_scores]);
+  max_successor_mask = tf.keras.layers.Lambda(lambda x: tf.map_fn(max_by_row, (x[0], x[1]), dtype = tf.bool))([is_precursor, row_multiplied_scores]);
+  graph = tf.keras.layers.Lambda(lambda x: tf.math.logical_and(x[0], tf.transpose(x[1], (1, 0))))([max_successor_mask, max_precursor_mask]);
+  return tf.keras.Model(inputs = (bbox, scores), outputs = graph);
 
 def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
 
