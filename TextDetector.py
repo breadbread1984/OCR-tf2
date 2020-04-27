@@ -77,7 +77,7 @@ class TextDetector(object):
       # get text line score by averaging box weights
       score = tf.math.reduce_mean(tf.gather(nms_bbox_scores, indices)); # score.shape = (m, 1)
       text_lines.append((xmin, min(ul_y, ur_y), xmax, max(dl_y, dr_y), score));
-    # TODO
+    return text_lines;
 
 if __name__ == "__main__":
 
@@ -90,4 +90,3 @@ if __name__ == "__main__":
     exit();
   text_detector = TextDetector();
   text_detector.detect(img);
-  
