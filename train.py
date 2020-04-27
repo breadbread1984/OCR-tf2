@@ -44,7 +44,7 @@ def main():
       print('Step #%d Loss: %.6f lr: %.6f' % (optimizer.iterations, avg_loss.result(), optimizer._hyper['learning_rate'](optimizer.iterations)));
       if avg_loss.result() < 0.01: break;
       avg_loss.reset_states();
-    grads = tape.gradient(l, ctpn.trainable_variables);
+    grads = tape.gradient(l, detector.ctpn.trainable_variables);
     if tf.reduce_any(tf.constant([tf.math.is_nan(grad) for grad in grads], dtype = tf.bool)) == True:
       print("NaN was detected in gradients, skip gradient apply!");
       continue;
@@ -54,7 +54,7 @@ def main():
       checkpoint.save(join('checkpoints', 'ckpt'));
   # save the network structure with weights
   if False == exists('model'): mkdir('model');
-  ctpn.save(join('model','ctpn.h5'));
+  detector.ctpn.save(join('model','ctpn.h5'));
 
 if __name__ == "__main__":
 
