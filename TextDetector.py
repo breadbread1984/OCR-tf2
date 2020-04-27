@@ -2,6 +2,7 @@
 
 import sys;
 from os.path import exists, join;
+import numpy as np;
 import tensorflow as tf;
 import cv2;
 from models import CTPN, OutputParser, GraphBuilder;
@@ -44,6 +45,16 @@ class TextDetector(object):
           sub_graphs[-1].append(v); # add the node into subgraph
     return sub_graphs;
 
+  def fit_y(self, X, Y, x1, x2):
+    
+    # if this group only contains one box
+    if tf.math.reduce_sum(tf.cast(tf.math.equal(X, X[0]), dtype = tf.int32)) == X.shape[0]:
+      return Y[0], Y[0];
+    # else fit with ax+b=y function
+    params = np.polyfit(X.numpy(),Y.numpy(), 1)
+    linefunc = np.poly1d(params);
+    return linefunc(x1), linefunc(x2);
+
   def detect(self, img):
 
     input = cv2.cvtColor(img, cv2.COLOR_BRG2RGB);
@@ -53,12 +64,19 @@ class TextDetector(object):
     bbox, bbox_scores = self.parser(bbox_pred); # bbox.shape = (n, 4) bbox_scores.shape = (n, 1)
     graph, nms_bbox, nms_bbox_scores = self.graph_builder(bbox, bbox_scores); # graph.shape = (n, n)
     groups = self.subgraph(graph); # generate connected components
-    text_lines = tf.zeros((len(groups), 5), dtype = tf.float32);
+    text_lines = list();
     for index, indices in enumerate(groups):
-      text_line_boxes = tf.gather(nms_bbox, indices); # text_line_boxes.shape = (n, 4)
-      xmin = tf.math.reduce_min(text_line_boxes[...,0]);
-      xmax = tf.math.reduce_max(text_line_boxes[...,2]);
-      
+      text_line_boxes = tf.gather(nms_bbox, indices); # text_line_boxes.shape = (m, 4)
+      xmin = tf.math.reduce_min(text_line_boxes[...,0]); # xmin.shape = ()
+      xmax = tf.math.reduce_max(text_line_boxes[...,2]); # xmax.shape = ()
+      half_width = (text_line_boxes[0, 2] - text_line_boxes[0, 0]) * 0.5; # offset.shape = ()
+      # fit curve with upper left corner coordinates (ul_x, ul_y)
+      ul_y, ur_y = self.fit_y(text_line_boxes[...,0], text_line_boxes[...,1], xmin + offset, xmax - offset);
+      # fit curve with down left corner coordinates (ul_x, dr_y)
+      dl_y, dr_y = self.fit_y(text_line_boxes[...,0], text_line_boxes[...,3], xmin + offset, xmax - offset);
+      # get text line score by averaging box weights
+      score = tf.math.reduce_mean(tf.gather(nms_bbox_scores, indices)); # score.shape = (m, 1)
+      text_lines.append((xmin, min(ul_y, ur_y), xmax, max(dl_y, dr_y), score));
     # TODO
 
 if __name__ == "__main__":
