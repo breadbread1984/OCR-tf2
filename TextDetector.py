@@ -64,7 +64,7 @@ class TextDetector(object):
       inputs = img;
     bbox_pred = self.ctpn(inputs); # bbox_pred.shape = (1, h / 16, w / 16, 10, 6)
     bbox, bbox_scores = self.parser(bbox_pred); # bbox.shape = (n, 4) bbox_scores.shape = (n, 1)
-    graph, nms_bbox, nms_bbox_scores = self.graph_builder(bbox, bbox_scores); # graph.shape = (n, n)
+    graph, nms_bbox, nms_bbox_scores = self.graph_builder([bbox, bbox_scores]); # graph.shape = (n, n)
     groups = self.subgraph(graph); # generate connected components
     text_lines = list();
     for index, indices in enumerate(groups):
