@@ -48,7 +48,7 @@ def main():
     if tf.reduce_any([tf.reduce_any(tf.math.is_nan(grad)) for grad in grads]) == True:
       print("NaN was detected in gradients, skip gradient apply!");
       continue;
-    optimizer.apply_gradients(zip(grads, model.trainable_variables));
+    optimizer.apply_gradients(zip(grads, detector.ctpn.trainable_variables));
     # save model
     if tf.equal(optimizer.iterations % 100, 0):
       checkpoint.save(join('checkpoints', 'ckpt'));
