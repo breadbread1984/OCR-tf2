@@ -4,7 +4,7 @@ import sys;
 from os.path import exists, join;
 import tensorflow as tf;
 import cv2;
-from models import CTPN, OutputParser;
+from models import CTPN, OutputParser, GraphBuilder;
 
 class TextDetector(object):
 
@@ -12,6 +12,7 @@ class TextDetector(object):
 
     self.ctpn = CTPN();
     self.parser = OutputParser();
+    self.graph_builder = GraphBuilder();
     if False == exists(join('model', 'ctpn.h5')):
       raise Exception('no model was found under directory model!');
     self.ctpn.load('ctpn.h5');
@@ -28,6 +29,21 @@ class TextDetector(object):
     output = cv2.resize(img, (new_w, new_h), interpolation = cv2.INTER_LINEAR);
     return output, (new_h / img.shape[0], new_w / img.shape[1]);
 
+  def subgraph(self, graph):
+
+    # cut a graph into several connected components
+    sub_graphs = list();
+    for i in range(graph.shape[0]):
+      if not tf.math.reduce_any(graph[:, i]) and tf.math.reduce_any(graph[i, :]):
+        # find a node with no precursors but has successors, create a connected component from it
+        v = i;
+        sub_graphs.append([v]);
+        # traverse nodes with deep first search
+        while tf.math.reduce_any(graph[v, :]):
+          v = tf.where(graph[v, :])[0, 0]; # find the first successor
+          sub_graphs[-1].append(v); # add the node into subgraph
+    return sub_graphs;
+
   def detect(self, img):
 
     input = cv2.cvtColor(img, cv2.COLOR_BRG2RGB);
@@ -35,7 +51,14 @@ class TextDetector(object):
     inputs = tf.cast(tf.expand_dims(input, axis = 0), dtype = tf.float32); # inputs.shape = (1, h, w, c)
     bbox_pred = self.ctpn(inputs); # bbox_pred.shape = (1, h / 16, w / 16, 10, 6)
     bbox, bbox_scores = self.parser(bbox_pred); # bbox.shape = (n, 4) bbox_scores.shape = (n, 1)
-    
+    graph, nms_bbox, nms_bbox_scores = self.graph_builder(bbox, bbox_scores); # graph.shape = (n, n)
+    groups = self.subgraph(graph); # generate connected components
+    text_lines = tf.zeros((len(groups), 5), dtype = tf.float32);
+    for index, indices in enumerate(groups):
+      text_line_boxes = tf.gather(nms_bbox, indices); # text_line_boxes.shape = (n, 4)
+      xmin = tf.math.reduce_min(text_line_boxes[...,0]);
+      xmax = tf.math.reduce_max(text_line_boxes[...,2]);
+      
     # TODO
 
 if __name__ == "__main__":

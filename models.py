@@ -104,7 +104,7 @@ def OutputParser(min_size = 8, pre_nms_topn = 12000, post_nms_topn = 1000, nms_t
   nms_bbox_scores = tf.keras.layers.Lambda(lambda x, n: x[:n, ...], arguments = {'n': post_nms_topn})(nms_bbox_scores);
   return tf.keras.Model(inputs = bbox_pred, outputs = (nms_bbox, nms_bbox_scores));
 
-def Connector(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_v_overlap = 0.7, min_size_sim = 0.7):
+def GraphBuilder(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_v_overlap = 0.7, min_size_sim = 0.7):
 
   bbox = tf.keras.Input((4,)); # bbox.shape = (n, 4)
   scores = tf.keras.Input((1,)); # scores.shape = (n, 1)
@@ -159,7 +159,7 @@ def Connector(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_v_o
     ),
     arguments = {'g': max_horizontal_gap, 't1': min_v_overlap, 't2': min_size_sim}
   )([minx_diff,overlap_h,size_similarity]); # is_successor.shape = (m',m') row is successor of col
-  is_precursor = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (1,0)))(is_successor); # is_precursor.shape = (m',m')
+  is_precursor = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (1,0)))(is_successor); # is_precursor.shape = (m',m') row is precursor of col
   row_multiplied_scores = tf.keras.layers.Lambda(lambda x: tf.tile(tf.transpose(x, (1, 0)),(tf.shape(x)[0], 1)))(nms_bbox_scores);
   def max_by_row(x):
     mask = x[0];
@@ -171,7 +171,7 @@ def Connector(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_v_o
   max_precursor_mask = tf.keras.layers.Lambda(lambda x: tf.map_fn(max_by_row, (x[0], x[1]), dtype = tf.bool))([is_successor, row_multiplied_scores]);
   max_successor_mask = tf.keras.layers.Lambda(lambda x: tf.map_fn(max_by_row, (x[0], x[1]), dtype = tf.bool))([is_precursor, row_multiplied_scores]);
   graph = tf.keras.layers.Lambda(lambda x: tf.math.logical_and(x[0], tf.transpose(x[1], (1, 0))))([max_successor_mask, max_precursor_mask]);
-  return tf.keras.Model(inputs = (bbox, scores), outputs = graph);
+  return tf.keras.Model(inputs = (bbox, scores), outputs = (graph, nms_bbox, nms_bbox_scores));
 
 def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
 
