@@ -71,11 +71,11 @@ class TextDetector(object):
       text_line_boxes = tf.gather(nms_bbox, indices); # text_line_boxes.shape = (m, 4)
       xmin = tf.math.reduce_min(text_line_boxes[...,0]); # xmin.shape = ()
       xmax = tf.math.reduce_max(text_line_boxes[...,2]); # xmax.shape = ()
-      half_width = (text_line_boxes[0, 2] - text_line_boxes[0, 0]) * 0.5; # offset.shape = ()
+      half_width = (text_line_boxes[0, 2] - text_line_boxes[0, 0]) * 0.5; # half_width.shape = ()
       # fit curve with upper left corner coordinates (ul_x, ul_y)
-      ul_y, ur_y = self.fit_y(text_line_boxes[...,0], text_line_boxes[...,1], xmin + offset, xmax - offset);
+      ul_y, ur_y = self.fit_y(text_line_boxes[...,0], text_line_boxes[...,1], xmin + half_width, xmax - half_width);
       # fit curve with down left corner coordinates (ul_x, dr_y)
-      dl_y, dr_y = self.fit_y(text_line_boxes[...,0], text_line_boxes[...,3], xmin + offset, xmax - offset);
+      dl_y, dr_y = self.fit_y(text_line_boxes[...,0], text_line_boxes[...,3], xmin + half_width, xmax - half_width);
       # get text line score by averaging box weights
       score = tf.math.reduce_mean(tf.gather(nms_bbox_scores, indices)); # score.shape = (m, 1)
       text_lines.append((xmin, min(ul_y, ur_y), xmax, max(dl_y, dr_y), score));
