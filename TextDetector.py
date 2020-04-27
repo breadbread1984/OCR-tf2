@@ -14,9 +14,8 @@ class TextDetector(object):
     self.ctpn = CTPN();
     self.parser = OutputParser();
     self.graph_builder = GraphBuilder();
-    if False == exists(join('model', 'ctpn.h5')):
-      raise Exception('no model was found under directory model!');
-    self.ctpn.load('ctpn.h5');
+    if exists(join('model', 'ctpn.h5')):
+      self.ctpn = tf.keras.models.load_model(join('model','ctpn.h5'), compile = False);
 
   def resize(self, img):
 
@@ -55,11 +54,14 @@ class TextDetector(object):
     linefunc = np.poly1d(params);
     return linefunc(x1), linefunc(x2);
 
-  def detect(self, img):
+  def detect(self, img, preprocess = True):
 
-    input = cv2.cvtColor(img, cv2.COLOR_BRG2RGB);
-    input, scale = self.resize(input);
-    inputs = tf.cast(tf.expand_dims(input, axis = 0), dtype = tf.float32); # inputs.shape = (1, h, w, c)
+    if preprocess == True:
+      input = cv2.cvtColor(img, cv2.COLOR_BRG2RGB);
+      input, scale = self.resize(input);
+      inputs = tf.cast(tf.expand_dims(input, axis = 0), dtype = tf.float32); # inputs.shape = (1, h, w, c)
+    else:
+      inputs = img;
     bbox_pred = self.ctpn(inputs); # bbox_pred.shape = (1, h / 16, w / 16, 10, 6)
     bbox, bbox_scores = self.parser(bbox_pred); # bbox.shape = (n, 4) bbox_scores.shape = (n, 1)
     graph, nms_bbox, nms_bbox_scores = self.graph_builder(bbox, bbox_scores); # graph.shape = (n, n)
