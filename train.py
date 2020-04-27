@@ -45,7 +45,7 @@ def main():
       if avg_loss.result() < 0.01: break;
       avg_loss.reset_states();
     grads = tape.gradient(l, detector.ctpn.trainable_variables);
-    if tf.reduce_any(tf.constant([tf.math.is_nan(grad) for grad in grads], dtype = tf.bool)) == True:
+    if tf.reduce_any([tf.math.is_nan(grad) for grad in grads]) == True:
       print("NaN was detected in gradients, skip gradient apply!");
       continue;
     optimizer.apply_gradients(zip(grads, model.trainable_variables));
