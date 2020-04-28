@@ -54,7 +54,7 @@ class TextDetector(object):
     linefunc = np.poly1d(params);
     return linefunc(x1), linefunc(x2);
 
-  def detect(self, img, preprocess = True):
+  def detect(self, img, preprocess = True, min_ratio = 0.5, min_score = 0.9, min_width = 32):
 
     if preprocess == True:
       input = cv2.cvtColor(img, cv2.COLOR_BRG2RGB);
@@ -78,7 +78,11 @@ class TextDetector(object):
       dl_y, dr_y = self.fit_y(text_line_boxes[...,0], text_line_boxes[...,3], xmin + half_width, xmax - half_width);
       # get text line score by averaging box weights
       score = tf.math.reduce_mean(tf.gather(nms_bbox_scores, indices)); # score.shape = (m, 1)
-      text_lines.append((xmin, min(ul_y, ur_y), xmax, max(dl_y, dr_y), score));
+      # filter box
+      height = max(dl_y, dr_y) - min(ul_y, ur_y) + 1;
+      width = xmax - xmin + 1;
+      if width / height > min_ratio and score > min_score and width > 32:
+        text_lines.append((xmin, min(ul_y, ur_y), xmax, max(dl_y, dr_y), score));      
     return text_lines;
 
 if __name__ == "__main__":
