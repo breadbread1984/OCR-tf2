@@ -27,7 +27,7 @@ class TextDetector(object):
     new_h = new_h if new_h // 16 == 0 else (new_h // 16 + 1) * 16;
     new_w = new_w if new_w // 16 == 0 else (new_w // 16 + 1) * 16;
     output = cv2.resize(img, (new_w, new_h), interpolation = cv2.INTER_LINEAR);
-    return output, (new_h / img.shape[0], new_w / img.shape[1]);
+    return output, (new_w / img.shape[1], new_h / img.shape[0]);
 
   def subgraph(self, graph):
 
@@ -61,6 +61,7 @@ class TextDetector(object):
       input, scale = self.resize(input);
       inputs = tf.cast(tf.expand_dims(input, axis = 0), dtype = tf.float32); # inputs.shape = (1, h, w, c)
     else:
+      scale = (1., 1.);
       inputs = img;
     bbox_pred = self.ctpn(inputs); # bbox_pred.shape = (1, h / 16, w / 16, 10, 6)
     bbox, bbox_scores = self.parser(bbox_pred); # bbox.shape = (n, 4) bbox_scores.shape = (n, 1)
@@ -82,7 +83,7 @@ class TextDetector(object):
       height = max(dl_y, dr_y) - min(ul_y, ur_y) + 1;
       width = xmax - xmin + 1;
       if width / height > min_ratio and score > min_score and width > 32:
-        text_lines.append((xmin, min(ul_y, ur_y), xmax, max(dl_y, dr_y), score));      
+        text_lines.append((xmin / scale[0], min(ul_y, ur_y) / scale[1], xmax / scale[0], max(dl_y, dr_y) / scale[1], score));
     return text_lines;
 
 if __name__ == "__main__":
