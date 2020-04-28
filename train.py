@@ -26,6 +26,7 @@ def main():
   # train model
   avg_loss = tf.keras.metrics.Mean(name = "loss", dtype = tf.float32);
   for image, labels in trainset:
+    assert labels.shape[0] != 0;
     with tf.GradientTape() as tape:
       bbox_pred = detector.ctpn(image);
       l = loss([bbox_pred, labels]);
