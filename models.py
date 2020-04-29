@@ -109,7 +109,7 @@ def GraphBuilder(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_
   # nms
   idx = tf.keras.layers.Lambda(lambda x: tf.argsort(x, axis = 0, direction = 'DESCENDING'))(filtered_scores); # idx.shape = (m, 1)
   sorted_bbox = tf.keras.layers.Lambda(lambda x: tf.gather_nd(x[0], x[1]))([filtered_bbox, idx]); # sorted_bbox.shape = (m, 4)
-  sorted_bbox_scores = tf.keras.layers.Lambda(lambda x: tf.gather_nd(x[0], x[1]))([filtered_scores, idx]); # sorted_bbox_scores.shape = (m, 1)
+  sorted_scores = tf.keras.layers.Lambda(lambda x: tf.gather_nd(x[0], x[1]))([filtered_scores, idx]); # sorted_scores.shape = (m, 1)
   def condition(index, bbox, scores):
     return index < tf.shape(bbox)[0];
   def body(index, bbox, scores):
@@ -132,7 +132,7 @@ def GraphBuilder(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_
     scores = tf.concat([scores[:index+1,...], filtered_following_scores], axis = 0); # scores.shape = (m', 1)
     index += 1;
     return index, bbox, scores;
-  _, nms_bbox, nms_bbox_scores = tf.keras.layers.Lambda(lambda x: tf.while_loop(condition, body, loop_vars = [tf.constant(0), x[0], x[1]], shape_invariants = [tf.TensorShape([]), tf.TensorShape([None, 4]), tf.TensorShape([None, 1])]))([sorted_bbox, sorted_bbox_scores]);
+  _, nms_bbox, nms_scores = tf.keras.layers.Lambda(lambda x: tf.while_loop(condition, body, loop_vars = [tf.constant(0), x[0], x[1]], shape_invariants = [tf.TensorShape([]), tf.TensorShape([None, 4]), tf.TensorShape([None, 1])]))([sorted_bbox, sorted_scores]);
   # construct graph
   minx_diff = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x[..., 0], axis = 1) - tf.expand_dims(x[..., 0], axis = 0))(nms_bbox); # successor_mask.shape = (m',m')
   # overlap
@@ -154,7 +154,7 @@ def GraphBuilder(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_
     arguments = {'g': max_horizontal_gap, 't1': min_v_overlap, 't2': min_size_sim}
   )([minx_diff,overlap_h,size_similarity]); # is_successor.shape = (m',m') row is successor of col
   is_precursor = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (1,0)))(is_successor); # is_precursor.shape = (m',m') row is precursor of col
-  row_multiplied_scores = tf.keras.layers.Lambda(lambda x: tf.tile(tf.transpose(x, (1, 0)),(tf.shape(x)[0], 1)))(nms_bbox_scores);
+  row_multiplied_scores = tf.keras.layers.Lambda(lambda x: tf.tile(tf.transpose(x, (1, 0)),(tf.shape(x)[0], 1)))(nms_scores);
   def max_by_row(x):
     mask = x[0];
     scores = x[1];
@@ -165,7 +165,7 @@ def GraphBuilder(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_
   max_precursor_mask = tf.keras.layers.Lambda(lambda x: tf.map_fn(max_by_row, (x[0], x[1]), dtype = tf.bool))([is_successor, row_multiplied_scores]);
   max_successor_mask = tf.keras.layers.Lambda(lambda x: tf.map_fn(max_by_row, (x[0], x[1]), dtype = tf.bool))([is_precursor, row_multiplied_scores]);
   graph = tf.keras.layers.Lambda(lambda x: tf.math.logical_and(x[0], tf.transpose(x[1], (1, 0))))([max_successor_mask, max_precursor_mask]);
-  return tf.keras.Model(inputs = (bbox, scores), outputs = (graph, nms_bbox, nms_bbox_scores));
+  return tf.keras.Model(inputs = (bbox, scores), outputs = (graph, nms_bbox, nms_scores));
 
 def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
 
