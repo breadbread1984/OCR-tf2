@@ -68,7 +68,7 @@ class TextDetector(object):
     text_lines = list();
     if tf.math.reduce_any(tf.math.greater(bbox_scores, 0.7)) == False:
       return text_lines;
-    graph, nms_bbox, nms_bbox_scores = self.graph_builder([bbox, bbox_scores]); # graph.shape = (n, n)
+    graph, nms_bbox, nms_scores = self.graph_builder([bbox, bbox_scores]); # graph.shape = (n, n)
     groups = self.subgraph(graph); # generate connected components
     for index, indices in enumerate(groups):
       text_line_boxes = tf.gather(nms_bbox, indices); # text_line_boxes.shape = (m, 4)
@@ -80,7 +80,7 @@ class TextDetector(object):
       # fit curve with down left corner coordinates (ul_x, dr_y)
       dl_y, dr_y = self.fit_y(text_line_boxes[...,0], text_line_boxes[...,3], xmin + half_width, xmax - half_width);
       # get text line score by averaging box weights
-      score = tf.math.reduce_mean(tf.gather(nms_bbox_scores, indices)); # score.shape = (m, 1)
+      score = tf.math.reduce_mean(tf.gather(nms_scores, indices)); # score.shape = (m, 1)
       # filter box
       height = max(dl_y, dr_y) - min(ul_y, ur_y) + 1;
       width = xmax - xmin + 1;
