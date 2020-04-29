@@ -62,8 +62,8 @@ def OutputParser(min_size = 8, pre_nms_topn = 12000, post_nms_topn = 1000, nms_t
   bbox = tf.keras.layers.Lambda(lambda x: tf.clip_by_value(x, [0,0,0,0], 16 * tf.cast([tf.shape(x)[-3],tf.shape(x)[-4],tf.shape(x)[-3],tf.shape(x)[-4]], dtype = tf.float32) - 1))(bbox);
   bbox = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (-1, 4)))(bbox); # bbox.shape = (-1, 4)
   scores = tf.keras.layers.Lambda(lambda x: tf.reshape(x, (-1, 1)))(scores); # scores.shape = (-1, 1)
-  bbox_wh = tf.keras.layers.Lambda(lambda x: x[..., 2:4] - x[..., 0:2])(bbox); # bbox_wh.shape = (-1, 2)
   # filter boxes
+  bbox_wh = tf.keras.layers.Lambda(lambda x: x[..., 2:4] - x[..., 0:2])(bbox); # bbox_wh.shape = (-1, 2)
   mask = tf.keras.layers.Lambda(lambda x, m: tf.math.logical_and(tf.math.greater_equal(x[...,0], m), tf.math.greater_equal(x[...,1], m)), arguments = {'m': min_size})(bbox_wh); # mask.shape = (n)
   filtered_bbox = tf.keras.layers.Lambda(lambda x: tf.boolean_mask(x[0], x[1]))([bbox, mask]); # filtered_bbox.shape = (n, 4)
   filtered_scores = tf.keras.layers.Lambda(lambda x: tf.boolean_mask(x[0], x[1]))([scores, mask]); # filtered_scores.shape = (n, 1)
