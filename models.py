@@ -76,7 +76,7 @@ def OutputParser(min_size = 8, pre_nms_topn = 12000, post_nms_topn = 1000, nms_t
   def body(index, bbox, scores):
     current_bbox = tf.expand_dims(bbox[index:index + 1,...], axis = 1); # current_bbox.shape = (1, 1, 4)
     following_bbox = tf.expand_dims(bbox[index + 1:,...], axis = 0); # following_bbox.shape = (1, m, 4)
-    following_scores = tf.expand_dims(scores[index:,...], axis = 0); # following_scores.shape = (1, m, 1)
+    following_scores = tf.expand_dims(scores[index + 1:,...], axis = 0); # following_scores.shape = (1, m, 1)
     upperleft = tf.math.maximum(current_bbox[...,:2], following_bbox[...,:2]); # upperleft.shape = (1, m, 2)
     downright = tf.math.minimum(current_bbox[...,2:], following_bbox[...,2:]); # downright.shape = (1, m, 2)
     intersect_wh = tf.math.maximum(downright - upperleft + 1, 0.); # intersect_wh.shape = (1, m, 2)
