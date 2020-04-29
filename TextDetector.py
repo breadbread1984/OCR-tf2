@@ -65,9 +65,11 @@ class TextDetector(object):
       inputs = img;
     bbox_pred = self.ctpn(inputs); # bbox_pred.shape = (1, h / 16, w / 16, 10, 6)
     bbox, bbox_scores = self.parser(bbox_pred); # bbox.shape = (n, 4) bbox_scores.shape = (n, 1)
+    text_lines = list();
+    if tf.math.reduce_any(tf.math.greater(bbox_scores, 0.7)) == False:
+      return text_lines;
     graph, nms_bbox, nms_bbox_scores = self.graph_builder([bbox, bbox_scores]); # graph.shape = (n, n)
     groups = self.subgraph(graph); # generate connected components
-    text_lines = list();
     for index, indices in enumerate(groups):
       text_line_boxes = tf.gather(nms_bbox, indices); # text_line_boxes.shape = (m, 4)
       xmin = tf.math.reduce_min(text_line_boxes[...,0]); # xmin.shape = ()
