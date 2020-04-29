@@ -70,7 +70,7 @@ def OutputParser(min_size = 8, pre_nms_topn = 12000, post_nms_topn = 1000, nms_t
   # nms
   idx = tf.keras.layers.Lambda(lambda x: tf.argsort(x, axis = 0, direction = 'DESCENDING'))(filtered_scores); # idx.shape = (n, 1)
   sorted_bbox = tf.keras.layers.Lambda(lambda x,n : tf.gather_nd(x[0], x[1])[:n,...], arguments = {'n': pre_nms_topn})([filtered_bbox, idx]); # sorted_bbox.shape = (n, 4)
-  sorted_bbox_scores = tf.keras.layers.Lambda(lambda x, n: tf.gather_nd(x[0], x[1])[:n,...], arguments = {'n': pre_nms_topn})([filtered_scores, idx]); # sorted_bbox_scores.shape = (n, 1)
+  sorted_scores = tf.keras.layers.Lambda(lambda x, n: tf.gather_nd(x[0], x[1])[:n,...], arguments = {'n': pre_nms_topn})([filtered_scores, idx]); # sorted_scores.shape = (n, 1)
   def condition(index, bbox, scores):
     return index < tf.shape(bbox)[0];
   def body(index, bbox, scores):
@@ -93,10 +93,10 @@ def OutputParser(min_size = 8, pre_nms_topn = 12000, post_nms_topn = 1000, nms_t
     scores = tf.concat([scores[:index+1,...], filtered_following_scores], axis = 0); # scores.shape = (m', 1)
     index += 1;
     return index, bbox, scores;
-  _, nms_bbox, nms_bbox_scores = tf.keras.layers.Lambda(lambda x: tf.while_loop(condition, body, loop_vars = [tf.constant(0), x[0], x[1]], shape_invariants = [tf.TensorShape([]), tf.TensorShape([None, 4]), tf.TensorShape([None, 1])]))([sorted_bbox, sorted_bbox_scores]);
+  _, nms_bbox, nms_scores = tf.keras.layers.Lambda(lambda x: tf.while_loop(condition, body, loop_vars = [tf.constant(0), x[0], x[1]], shape_invariants = [tf.TensorShape([]), tf.TensorShape([None, 4]), tf.TensorShape([None, 1])]))([sorted_bbox, sorted_scores]);
   nms_bbox = tf.keras.layers.Lambda(lambda x, n: x[:n, ...], arguments = {'n': post_nms_topn})(nms_bbox);
-  nms_bbox_scores = tf.keras.layers.Lambda(lambda x, n: x[:n, ...], arguments = {'n': post_nms_topn})(nms_bbox_scores);
-  return tf.keras.Model(inputs = bbox_pred, outputs = (nms_bbox, nms_bbox_scores));
+  nms_scores = tf.keras.layers.Lambda(lambda x, n: x[:n, ...], arguments = {'n': post_nms_topn})(nms_scores);
+  return tf.keras.Model(inputs = bbox_pred, outputs = (nms_bbox, nms_scores));
 
 def GraphBuilder(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_v_overlap = 0.7, min_size_sim = 0.7):
 
