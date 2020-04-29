@@ -90,7 +90,7 @@ def OutputParser(min_size = 8, pre_nms_topn = 12000, post_nms_topn = 1000, nms_t
     filtered_following_bbox = tf.gather_nd(following_bbox, mask); # filtered_following_bbox.shape = (n, 4)
     filtered_following_scores = tf.gather_nd(following_scores, mask); # filtered_following_scores.shape = (n, 1)
     bbox = tf.concat([bbox[:index + 1,...], filtered_following_bbox], axis = 0); # bbox.shape = (m', 4)
-    scores = tf.concat([scores[:index+1,...], filtered_following_scores], axis = 0); # scores.shape = (m', 1)
+    scores = tf.concat([scores[:index + 1,...], filtered_following_scores], axis = 0); # scores.shape = (m', 1)
     index += 1;
     return index, bbox, scores;
   _, nms_bbox, nms_scores = tf.keras.layers.Lambda(lambda x: tf.while_loop(condition, body, loop_vars = [tf.constant(0), x[0], x[1]], shape_invariants = [tf.TensorShape([]), tf.TensorShape([None, 4]), tf.TensorShape([None, 1])]))([sorted_bbox, sorted_scores]);
@@ -129,7 +129,7 @@ def GraphBuilder(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_
     filtered_following_bbox = tf.gather_nd(following_bbox, mask); # filtered_following_bbox.shape = (n, 4)
     filtered_following_scores = tf.gather_nd(following_scores, mask); # filtered_following_scores.shape = (n, 1)
     bbox = tf.concat([bbox[:index + 1,...], filtered_following_bbox], axis = 0); # bbox.shape = (m', 4)
-    scores = tf.concat([scores[:index+1,...], filtered_following_scores], axis = 0); # scores.shape = (m', 1)
+    scores = tf.concat([scores[:index + 1,...], filtered_following_scores], axis = 0); # scores.shape = (m', 1)
     index += 1;
     return index, bbox, scores;
   _, nms_bbox, nms_scores = tf.keras.layers.Lambda(lambda x: tf.while_loop(condition, body, loop_vars = [tf.constant(0), x[0], x[1]], shape_invariants = [tf.TensorShape([]), tf.TensorShape([None, 4]), tf.TensorShape([None, 1])]))([sorted_bbox, sorted_scores]);
@@ -139,7 +139,7 @@ def GraphBuilder(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_
   upperleft_h = tf.keras.layers.Lambda(lambda x: tf.math.maximum(tf.expand_dims(x[...,1], axis = 0), tf.expand_dims(x[...,1], axis = 1)))(nms_bbox); # upperleft.shape = (m',m')
   downright_h = tf.keras.layers.Lambda(lambda x: tf.math.minimum(tf.expand_dims(x[...,3], axis = 0), tf.expand_dims(x[...,3], axis = 1)))(nms_bbox); # downright.shape = (m',m')
   intersect_h = tf.keras.layers.Lambda(lambda x: tf.math.maximum(x[1] - x[0] + 1, 0.))([upperleft_h, downright_h]); # intersect_wh.shape = (m',m')
-  bbox_h = tf.keras.layers.Lambda(lambda x: x[...,3] - x[...,1])(nms_bbox); # bbox_h.shape = (m')
+  bbox_h = tf.keras.layers.Lambda(lambda x: x[...,3] - x[...,1] + 1)(nms_bbox); # bbox_h.shape = (m')
   max_h = tf.keras.layers.Lambda(lambda x: tf.math.maximum(tf.expand_dims(x, axis = 0), tf.expand_dims(x, axis = 1)))(bbox_h); # max_h.shape = (m',m')
   min_h = tf.keras.layers.Lambda(lambda x: tf.math.minimum(tf.expand_dims(x, axis = 0), tf.expand_dims(x, axis = 1)))(bbox_h); # min_h.shape = (m',m')
   overlap_h = tf.keras.layers.Lambda(lambda x: x[0] / x[1])([intersect_h, min_h]); # overlap.shape = (m',m')
