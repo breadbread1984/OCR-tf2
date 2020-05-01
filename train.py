@@ -14,7 +14,7 @@ def main():
 
   detector = TextDetector();
   loss = Loss();
-  optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.ExponentialDecay(1e-3, decay_steps = 60000, decay_rate = 0.8));
+  optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.ExponentialDecay(1e-5, decay_steps = 30000, decay_rate = 0.1));
   # load dataset
   trainset = tf.data.TFRecordDataset(join('datasets', 'trainset.tfrecord')).repeat(-1).map(parse_function).batch(1).prefetch(tf.data.experimental.AUTOTUNE);
   # restore from existing checkpoint
@@ -53,7 +53,7 @@ def main():
       continue;
     optimizer.apply_gradients(zip(grads, detector.ctpn.trainable_variables));
     # save model
-    if tf.equal(optimizer.iterations % 100, 0):
+    if tf.equal(optimizer.iterations % 2000, 0):
       checkpoint.save(join('checkpoints', 'ckpt'));
   # save the network structure with weights
   if False == exists('model'): mkdir('model');
