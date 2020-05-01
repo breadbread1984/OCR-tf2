@@ -204,11 +204,15 @@ def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_po
   gt_bbox_wh = tf.keras.layers.Lambda(lambda x: x[...,2:4] - x[...,0:2] + 1)(gt); # gt_bbox_wh.shape = (1, 1, 1, m, 2)
   gt_bbox_area = tf.keras.layers.Lambda(lambda x: x[...,0] * x[...,1])(gt_bbox_wh); # gt_bbox_area.shape = (1, 1, 1, m)
   iou = tf.keras.layers.Lambda(lambda x: x[0] / (x[1] + x[2] - x[0]))([intersect_area, anchors_area, gt_bbox_area]); # iou.shape = (h, w, 10, m)
-  best_iou = tf.keras.layers.Lambda(lambda x: tf.math.reduce_max(x, axis = -1))(iou); # best_iou.shape = (h, w, 10)
+  best_gt_iou = tf.keras.layers.Lambda(lambda x: tf.math.reduce_max(x, axis = -1))(iou); # best_gt_iou.shape = (h, w, 10)
   best_gt_idx = tf.keras.layers.Lambda(lambda x: tf.math.argmax(x, axis = -1, output_type = tf.int32))(iou); # best_gt.shape = (h, w, 10)
+  best_anchor_iou = tf.keras.layers.Lambda(lambda x: tf.math.reduce_max(x, axis = [0, 1, 2]))(iou); # best_anchor_iou.shape = (m,)
+  best_anchor_mask = tf.keras.layers.Lambda(lambda x: tf.math.reduce_any(tf.math.equal(x[0], tf.reshape(x[1], (1,1,1,-1))), axis = -1))([iou, best_anchor_iou]); # best_anchor_mask.shape = (h, w, 10)
   # 1) label anchor boxes with 1 when overlap > 0.7, 0 when overlap < 0.3, -1 with others
-  labels = tf.keras.layers.Lambda(lambda x, nt, pt: tf.where(tf.math.less(x, nt), tf.zeros_like(x), tf.where(tf.math.greater(x,pt), tf.ones_like(x), -tf.ones_like(x))), 
-                                  arguments = {'nt': rpn_neg_thres, 'pt': rpn_pos_thres})(best_iou); # labels.shape = (h, w, 10)
+  labels = tf.keras.layers.Lambda(lambda x, nt, pt: tf.where(tf.math.less(x, nt), tf.zeros_like(x), tf.where(tf.math.greater_equal(x,pt), tf.ones_like(x), -tf.ones_like(x))), 
+                                  arguments = {'nt': rpn_neg_thres, 'pt': rpn_pos_thres})(best_gt_iou); # labels.shape = (h, w, 10)
+  # label anchor boxes having best iou with any ground truth with 1
+  labels = tf.keras.layers.Lambda(lambda x: tf.where(x[0], tf.ones_like(x[1]), x[1]))([best_anchor_mask, labels]); # labels.shape = (h, w, 10)
   # when there are too many positives, random drop some
   count = tf.keras.layers.Lambda(lambda x: tf.math.reduce_sum(tf.where(tf.math.equal(x, 1), tf.ones_like(x), tf.zeros_like(x))))(labels);
   labels = tf.keras.layers.Lambda(lambda x, n: tf.cond(tf.math.less(x[0], n),
@@ -247,10 +251,11 @@ def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_po
   target_dwdh = tf.keras.layers.Lambda(lambda x: tf.math.log(x[0] / x[1]))([best_gt_wh, anchors_wh]); # target_dwdh.shape = (h, w, 10, 2)
   bbox_target = tf.keras.layers.Concatenate(axis = -1)([target_dxdy, target_dwdh]); # bbox_target.shape = (h, w, 10, 4)
   bbox_target = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x, axis = 0))(bbox_target); # bbox_target.shape = (1, h, w, 10, 4)
-  # 3) get class loss at locations without -1 label
+  # 3) get class loss at locations with 1 and 0 label
   mask = tf.keras.layers.Lambda(lambda x: tf.math.not_equal(x, -1))(labels); # mask.shape = (1, h, w, 10)
   cls_loss = tf.keras.layers.Lambda(lambda x: tf.keras.losses.SparseCategoricalCrossentropy(from_logits = True)(tf.boolean_mask(x[1], x[0]), tf.boolean_mask(x[2][..., -2:], x[0])))([mask, labels, bbox_pred]);
-  # 4) get prediction loss at locations without -1 label
+  # 4) get prediction loss at locations with 1 label
+  mask = tf.keras.layers.Lambda(lambda x: tf.math.equal(x, 1))(labels); # mask.shape = (1, h, w, 10)
   pred_loss = tf.keras.layers.Lambda(lambda x: tf.keras.losses.MeanAbsoluteError()(tf.boolean_mask(x[1], x[0]), tf.boolean_mask(x[2][..., :4], x[0])))([mask, bbox_target, bbox_pred]);
   loss = tf.keras.layers.Lambda(lambda x: x[0] + x[1])([cls_loss, pred_loss]);
   return tf.keras.Model(inputs = (bbox_pred, gt_bbox), outputs = loss);
