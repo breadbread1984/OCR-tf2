@@ -57,7 +57,7 @@ class TextDetector(object):
   def detect(self, img, preprocess = True, min_ratio = 0.5, min_score = 0.9, min_width = 32):
 
     if preprocess == True:
-      input = cv2.cvtColor(img, cv2.COLOR_BRG2RGB);
+      input = cv2.cvtColor(img, cv2.COLOR_BGR2RGB);
       input, scale = self.resize(input);
       inputs = tf.cast(tf.expand_dims(input, axis = 0), dtype = tf.float32); # inputs.shape = (1, h, w, c)
     else:
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     exit();
   text_detector = TextDetector();
   textlines = text_detector.detect(img);
-  for textline in textline:
+  for textline in textlines:
     cv2.rectangle(img, (int(textline[0]), int(textline[1])),(int(textline[2]), int(textline[3])), (0,255,0), 2);
   cv2.imshow('text lines', img);
   cv2.waitKey();
