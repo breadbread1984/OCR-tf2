@@ -99,9 +99,9 @@ if __name__ == "__main__":
     exit();
   text_detector = TextDetector();
   textlines, bbox, scores = text_detector.detect(img);
-  for textline in textlines:
-    cv2.rectangle(img, (int(textline[0]), int(textline[1])),(int(textline[2]), int(textline[3])), (0,255,0), 2);
   for b in bbox:
     cv2.rectangle(img, (int(b[0]),int(b[1])), (int(b[2]),int(b[3])), (255,0,0), 2);
+  for textline in textlines:
+    cv2.rectangle(img, (int(textline[0]), int(textline[1])),(int(textline[2]), int(textline[3])), (0,255,0), 2);
   cv2.imshow('text lines', img);
   cv2.waitKey();
