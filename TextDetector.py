@@ -98,4 +98,8 @@ if __name__ == "__main__":
     print('failed to open image!');
     exit();
   text_detector = TextDetector();
-  text_detector.detect(img);
+  textlines = text_detector.detect(img);
+  for textline in textline:
+    cv2.rectangle(img, (int(textline[0]), int(textline[1])),(int(textline[2]), int(textline[3])), (0,255,0), 2);
+  cv2.imshow('text lines', img);
+  cv2.waitKey();
