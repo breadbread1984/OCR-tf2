@@ -21,6 +21,20 @@ train with the following command
 python3 train.py
 ```
 
+when the training process finishes, it will save the parameters in hdf5 format automatically. if you interrupt the training process, you can save the model with the following command
+
+```bash
+python3 save_model.py
+```
+
+## test the text area detector
+
+test the detector with
+
+```bash
+python3 TextDetector.py <path/to/the/picture>
+```
+
 ## text area detection results
 
 here are some results of my model which is enclosed at model/ctpn.h5 .
