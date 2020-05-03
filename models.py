@@ -134,7 +134,7 @@ def GraphBuilder(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_
     return index, bbox, scores;
   _, nms_bbox, nms_scores = tf.keras.layers.Lambda(lambda x: tf.while_loop(condition, body, loop_vars = [tf.constant(0), x[0], x[1]], shape_invariants = [tf.TensorShape([]), tf.TensorShape([None, 4]), tf.TensorShape([None, 1])]))([sorted_bbox, sorted_scores]);
   # construct graph
-  minx_diff = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x[..., 0], axis = 1) - tf.expand_dims(x[..., 0], axis = 0))(nms_bbox); # successor_mask.shape = (m',m')
+  minx_diff = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x[..., 0], axis = 0) - tf.expand_dims(x[..., 0], axis = 1))(nms_bbox); # successor_mask.shape = (m',m')
   # overlap
   upperleft_h = tf.keras.layers.Lambda(lambda x: tf.math.maximum(tf.expand_dims(x[...,1], axis = 0), tf.expand_dims(x[...,1], axis = 1)))(nms_bbox); # upperleft.shape = (m',m')
   downright_h = tf.keras.layers.Lambda(lambda x: tf.math.minimum(tf.expand_dims(x[...,3], axis = 0), tf.expand_dims(x[...,3], axis = 1)))(nms_bbox); # downright.shape = (m',m')
@@ -146,14 +146,21 @@ def GraphBuilder(min_score = 0.7, nms_thres = 0.2, max_horizontal_gap = 50, min_
   # size similarity
   size_similarity = tf.keras.layers.Lambda(lambda x: x[0] / x[1])([min_h, max_h]); # size_similarity.shape = (m',m')
   # successor and precursor mask
-  is_successor = tf.keras.layers.Lambda(lambda x, g, t1, t2:
+  is_precursor = tf.keras.layers.Lambda(lambda x, g, t1, t2:
     tf.math.logical_and(
       tf.math.logical_and(tf.math.greater_equal(x[0], 1), tf.math.less_equal(x[0], g)),
       tf.math.logical_and(tf.math.greater_equal(x[1], t1), tf.math.greater_equal(x[2], t2))
     ),
     arguments = {'g': max_horizontal_gap, 't1': min_v_overlap, 't2': min_size_sim}
   )([minx_diff,overlap_h,size_similarity]); # is_successor.shape = (m',m') row is successor of col
-  is_precursor = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (1,0)))(is_successor); # is_precursor.shape = (m',m') row is precursor of col
+  def min_by_row(x):
+    mask = x[0];
+    diff = x[1];
+    masked_diff = tf.where(mask, diff, 1e9 * tf.ones_like(diff)); # NOTE: elements of masked_diff must be above zero
+    min_mask = tf.cond(tf.math.reduce_any(mask), true_fn = lambda: tf.math.equal(masked_diff, tf.math.reduce_min(masked_diff)), false_fn = lambda: tf.zeros_like(mask, dtype = tf.bool));
+    return min_mask;
+  is_precursor = tf.keras.layers.Lambda(lambda x: tf.map_fn(min_by_row, (x[0], x[1]), dtype = tf.bool))([is_precursor, minx_diff]); # is_precursor.shape = (m',m') row is precursor of col
+  is_successor = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (1,0)))(is_precursor); # is_precursor.shape = (m',m') row is successor of col
   row_multiplied_scores = tf.keras.layers.Lambda(lambda x: tf.tile(tf.transpose(x, (1, 0)),(tf.shape(x)[0], 1)))(nms_scores);
   def max_by_row(x):
     mask = x[0];
