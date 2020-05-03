@@ -86,7 +86,7 @@ class TextDetector(object):
       width = xmax - xmin + 1;
       if width / height > min_ratio and score > min_score and width > 32:
         text_lines.append((xmin / scale[0], min(ul_y, ur_y) / scale[1], xmax / scale[0], max(dl_y, dr_y) / scale[1], score));
-    return text_lines;
+    return text_lines, nms_bbox / tf.constant([[scale[0], scale[1], scale[0], scale[1]]], dtype = tf.float32), nms_scores;
 
 if __name__ == "__main__":
 
@@ -98,8 +98,10 @@ if __name__ == "__main__":
     print('failed to open image!');
     exit();
   text_detector = TextDetector();
-  textlines = text_detector.detect(img);
+  textlines, bbox, scores = text_detector.detect(img);
   for textline in textlines:
     cv2.rectangle(img, (int(textline[0]), int(textline[1])),(int(textline[2]), int(textline[3])), (0,255,0), 2);
+  for b in bbox:
+    cv2.rectangle(img, (int(b[0]),int(b[1])), (int(b[2]),int(b[3])), (255,0,0), 2);
   cv2.imshow('text lines', img);
   cv2.waitKey();

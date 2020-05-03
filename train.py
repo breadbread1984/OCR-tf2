@@ -38,7 +38,7 @@ def main():
       with log.as_default():
         tf.summary.scalar('loss', avg_loss.result(), step = optimizer.iterations);
         # draw text detection results
-        text_lines = detector.detect(image, False);
+        text_lines, _, _ = detector.detect(image, False);
         image = image[0,...].numpy().astype('uint8');
         for text_line in text_lines:
           cv2.rectangle(image, (int(text_line[0]), int(text_line[1])), (int(text_line[2]), int(text_line[3])), (0, 255, 0), 2);
