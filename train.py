@@ -1,16 +1,17 @@
 #!/usr/bin/python3
 
+import sys;
 from os import mkdir;
 from os.path import join, exists;
 import cv2;
 import tensorflow as tf;
 from create_dataset import parse_function;
-from models import CTPN, Loss;
+from models import Loss, OCR;
 from TextDetector import TextDetector;
 
 dataset_size = 3421;
 
-def main():
+def train_cptn():
 
   detector = TextDetector();
   loss = Loss();
@@ -59,7 +60,20 @@ def main():
   if False == exists('model'): mkdir('model');
   detector.ctpn.save(join('model','ctpn.h5'));
 
+def train_lstm():
+
+  ocr = OCR(100);
+
 if __name__ == "__main__":
 
   assert tf.executing_eagerly();
-  main();
+  if len(sys.argv) != 2:
+    print("Usage: " + sys.argv[0] + " (train_cptn|train_lstm)");
+    exit(1);
+  if sys,argv[1] not in ['train_cptn', 'train_ocr']:
+    print("only support train_cptn or train_ocr!");
+    exit(1);
+  if sys.argv[1] == "train_cptn":
+    train_cptn();
+  else:
+    train_lstm();
