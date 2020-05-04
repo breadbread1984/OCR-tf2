@@ -5,7 +5,7 @@ from os import mkdir;
 from os.path import join, exists;
 import cv2;
 import tensorflow as tf;
-from create_dataset import parse_function;
+from create_dataset import parse_function, idcard_string_generator;
 from models import Loss, OCR;
 from TextDetector import TextDetector;
 
@@ -64,7 +64,39 @@ def train_cptn():
 def train_ocr():
 
   ocr = OCR(num_class);
-  
+  optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedulers.ExponentialDecay(1e-5, decay_steps = 30000, decay_rate = 0.9));
+  # load dataset
+  trainset = tf.data.Dataset.from_generator(idcard_string_generator, (tf.float32, tf.int64), (tf.TensorShape([None, 32]), tf.TensorShape([None,]))).repeat(-1).batch(32).prefetch(tf.data.experimental.AUTOTUNE);
+  # restore from existing checkpoint
+  if False == exists('checkpoints'): mkdir('checkpoints');
+  checkpoint = tf.train.Checkpoint(model = ocr, optimizer = optimizer);
+  checkpoint.restore(tf.train.latest_checkpoint('checkpoints'));
+  # create log
+  log = tf.summary.create_file_writer('checkpoints');
+  # train model
+  avg_loss = tf.keras.metrics.Mean(name = 'loss', dtype = tf.float32);
+  for image, labels in trainset:
+    with tf.GradientTape() as tape:
+      # image.shape = (batch, seq_length, 32)
+      logits = ocr(image); # logits.shape = (batch, seq_length / 8, 512)
+      loss = tf.nn.ctc_loss(labels = labels, inputs = logits, sequence_length = image.shape[1] // 8);
+      loss = tf.math.reduce_mean(loss);
+    avg_loss.update_state(loss);
+    # write log
+    if tf.equal(optimizer.iterations % 100, 0):
+      with log.as_default():
+        tf.summary.scalar('loss', avg_loss.result(), step = optimizer.iterations);
+      print('Step #%d Loss: %.6f lr: %.6f' % (optimizer.iterations, avg_loss.result(), optimizer._hyper['learning_rate'](optimizer.iterations)));
+      if avg_loss.result() < 0.01: break;
+      avg_loss.reset_states();
+    grads = tape.gradient(loss, ocr.trainable_variables);
+    optimizer.apply_gradients(zip(grads, ocr.trainable_variables));
+    # save model
+    if tf.equal(optimizer.iterations % 2000, 0):
+      checkpoint.save(join('checkpoints', 'ckpt'));
+  # save the network structure with weights
+  if False == exists('model'): mkdir('model');
+  ocr.save(join('model', 'ocr.h5'));
 
 if __name__ == "__main__":
 
