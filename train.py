@@ -10,6 +10,7 @@ from models import Loss, OCR;
 from TextDetector import TextDetector;
 
 dataset_size = 3421;
+num_class = 100;
 
 def train_cptn():
 
@@ -60,9 +61,10 @@ def train_cptn():
   if False == exists('model'): mkdir('model');
   detector.ctpn.save(join('model','ctpn.h5'));
 
-def train_lstm():
+def train_ocr():
 
-  ocr = OCR(100);
+  ocr = OCR(num_class);
+  
 
 if __name__ == "__main__":
 
@@ -76,4 +78,4 @@ if __name__ == "__main__":
   if sys.argv[1] == "train_cptn":
     train_cptn();
   else:
-    train_lstm();
+    train_ocr();
