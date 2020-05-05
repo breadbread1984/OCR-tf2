@@ -5,12 +5,11 @@ from os import mkdir;
 from os.path import join, exists;
 import cv2;
 import tensorflow as tf;
-from create_dataset import ctpn_parse_function, ocr_parse_function, SampleGenerator;
+from create_dataset import ctpn_parse_function, SampleGenerator;
 from models import Loss, OCR;
 from TextDetector import TextDetector;
 
 dataset_size = 3421;
-num_class = 100;
 
 def train_cptn():
 
@@ -63,10 +62,11 @@ def train_cptn():
 
 def train_ocr():
 
-  ocr = OCR(num_class);
+  generator = SampleGenerator(10);
+  ocr = OCR(generator.vocab_size());
   optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.ExponentialDecay(1e-5, decay_steps = 30000, decay_rate = 0.9));
   # load dataset
-  trainset = tf.data.Dataset.from_generator(SampleGenerator(4).gen, (tf.float32, tf.int64), (tf.TensorShape([32, None, 3]), tf.TensorShape([None,]))).repeat(-1).map(ocr_parse_function).batch(32).prefetch(tf.data.experimental.AUTOTUNE);
+  trainset = tf.data.Dataset.from_generator(generator.gen, (tf.float32, tf.int64), (tf.TensorShape([32, None, 3]), tf.TensorShape([None,]))).repeat(-1).batch(32).prefetch(tf.data.experimental.AUTOTUNE);
   # restore from existing checkpoint
   if False == exists('checkpoints'): mkdir('checkpoints');
   checkpoint = tf.train.Checkpoint(model = ocr, optimizer = optimizer);
