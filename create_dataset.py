@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont;
 import tensorflow as tf;
 from tokenizer import Tokenizer;
 
-def parse_function(serialized_example):
+def ctpn_parse_function(serialized_example):
     
   feature = tf.io.parse_single_example(
     serialized_example,
@@ -99,7 +99,7 @@ class SampleGenerator(object):
       sample.rotate(np.random.uniform(low = -5, high = 5), expand = 0);
       sample = np.asarray(sample);
       samples.append(sample);
-    return np.concatenate(samples, axis = 1), tokens, s;
+    return tf.cast(np.concatenate(samples, axis = 1), dtype = tf.float32), tf.cast(tokens, dtype = tf.int64);
 
 if __name__ == "__main__":
 

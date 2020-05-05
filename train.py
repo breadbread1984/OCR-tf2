@@ -5,7 +5,7 @@ from os import mkdir;
 from os.path import join, exists;
 import cv2;
 import tensorflow as tf;
-from create_dataset import parse_function, idcard_string_generator;
+from create_dataset import ctpn_parse_function, SampleGenerator;
 from models import Loss, OCR;
 from TextDetector import TextDetector;
 
@@ -18,7 +18,7 @@ def train_cptn():
   loss = Loss();
   optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.ExponentialDecay(1e-5, decay_steps = 30000, decay_rate = 0.9));
   # load dataset
-  trainset = tf.data.TFRecordDataset(join('datasets', 'trainset.tfrecord')).repeat(-1).map(parse_function).batch(1).prefetch(tf.data.experimental.AUTOTUNE);
+  trainset = tf.data.TFRecordDataset(join('datasets', 'trainset.tfrecord')).repeat(-1).map(ctpn_parse_function).batch(1).prefetch(tf.data.experimental.AUTOTUNE);
   # restore from existing checkpoint
   if False == exists('checkpoints'): mkdir('checkpoints');
   checkpoint = tf.train.Checkpoint(model = detector.ctpn, optimizer = optimizer);
@@ -66,7 +66,7 @@ def train_ocr():
   ocr = OCR(num_class);
   optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedulers.ExponentialDecay(1e-5, decay_steps = 30000, decay_rate = 0.9));
   # load dataset
-  trainset = tf.data.Dataset.from_generator(idcard_string_generator, (tf.float32, tf.int64), (tf.TensorShape([None, 32]), tf.TensorShape([None,]))).repeat(-1).batch(32).prefetch(tf.data.experimental.AUTOTUNE);
+  trainset = tf.data.Dataset.from_generator(SampleGenerator(10).gen, (tf.float32, tf.int64), (tf.TensorShape([None, 32]), tf.TensorShape([None,]))).repeat(-1).batch(32).prefetch(tf.data.experimental.AUTOTUNE);
   # restore from existing checkpoint
   if False == exists('checkpoints'): mkdir('checkpoints');
   checkpoint = tf.train.Checkpoint(model = ocr, optimizer = optimizer);
@@ -79,7 +79,7 @@ def train_ocr():
     with tf.GradientTape() as tape:
       # image.shape = (batch, seq_length, 32)
       logits = ocr(image); # logits.shape = (batch, seq_length / 8, 512)
-      loss = tf.nn.ctc_loss(labels = labels, inputs = logits, sequence_length = image.shape[1] // 8);
+      loss = tf.nn.ctc_loss(labels = labels, logits = logits, label_length = labels.shape[1], logit_length = logits.shape[1], logits_time_major == False);
       loss = tf.math.reduce_mean(loss);
     avg_loss.update_state(loss);
     # write log
