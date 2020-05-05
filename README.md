@@ -18,7 +18,7 @@ python3 create_dataset.py <path/to/mlt directory>
 train with the following command
 
 ```bash
-python3 train.py
+python3 train.py train_cptn
 ```
 
 when the training process finishes, it will save the parameters in hdf5 format automatically. if you interrupt the training process, you can save the model with the following command
