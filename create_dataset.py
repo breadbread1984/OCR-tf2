@@ -30,15 +30,6 @@ def ctpn_parse_function(serialized_example):
   objects = tf.reshape(objects, (obj_num, 4));
   return data, objects;
 
-def ocr_parse_function(example):
-
-  data = example[0];
-  width = 8 * ceil(data.shape[1] / 8);
-  data = cv2.resize(data, (width, 32));
-  data = tf.cast(data, dtype = tf.float32);
-  label = tf.cast(example[1], dtype = tf.int64);
-  return data, label;
-
 def create_dataset(root_dir, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
 
   if not exists('datasets'): mkdir('datasets');
@@ -76,17 +67,21 @@ def create_dataset(root_dir, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
 
 class SampleGenerator(object):
 
-  def __init__(self, word_size = 4):
+  def __init__(self, length = 4):
 
     self.tokenizer = Tokenizer();
     self.bg_imgs = [cv2.imread(join('background', bg_img)) for bg_img in listdir('background')];
     self.fonts_path = [join('fonts', font_path) for font_path in listdir('fonts')];
-    self.word_size = word_size;
+    self.length = length;
+    
+  def vocab_size(self):
+
+    return self.tokenizer.size();
 
   def gen(self):
     
     bg_img = self.bg_imgs[np.random.randint(low = 0, high = len(self.bg_imgs))];
-    tokens = np.random.randint(low = 0, high = self.tokenizer.size(), size = (self.word_size));
+    tokens = np.random.randint(low = 0, high = self.tokenizer.size(), size = (self.length));
     s = self.tokenizer.translate(tokens);
     samples = list();
     for i in range(len(tokens)):
@@ -94,10 +89,10 @@ class SampleGenerator(object):
       ch = s[i];
       height = 32;
       width = np.random.randint(low = height - 12, high = height - 7) if ch.isdigit() else ( 
-          np.random.randint(low = height - 7, high = height - 3) if ch.isalpha() else 
+          np.random.randint(low = height - 7, high = height - 3) if ord('A') < ord(ch) < ord('Z') or ord('a') < ord(ch) < ord('z') else 
           np.random.randint(low = height - 5, high = height + 1));
       font_size = np.random.randint(low = height - 2, high = height + 2) if ch.isdigit() else (
-          np.random.randint(low = height - 4, high = height + 1) if ch.isalpha() else
+          np.random.randint(low = height - 4, high = height + 1) if ord('A') < ord(ch) < ord('Z') or ord('a') < ord(ch) < ord('z') else
           np.random.randint(low = width - 4, high = width + 1));
       ul_xy = (np.random.randint(low = 0, high = bg_img.shape[1] - width), np.random.randint(low = 0, high = bg_img.shape[0] - height));
       sample = bg_img[ul_xy[1]:ul_xy[1] + height, ul_xy[0]:ul_xy[0] + width];
@@ -109,7 +104,16 @@ class SampleGenerator(object):
       sample.rotate(np.random.uniform(low = -5, high = 5), expand = 0);
       sample = np.asarray(sample);
       samples.append(sample);
-    yield np.concatenate(samples), tokens;
+    sample = np.concatenate(samples, axis = 1);
+    width = 32 * self.length;
+    if sample.shape[1] > width:
+      sample = cv2.resize(sample, (width, 32));
+    else:
+      ul_xy = (np.random.randint(low = 0, high = bg_img.shape[1] - (width - sample.shape[1])), np.random.randint(low = 0, high = bg_img.shape[0] - 32));
+      sample = np.concatenate([sample, bg_img[ul_xy[1]:ul_xy[1] + 32, ul_xy[0]:ul_xy[0] + width - sample.shape[1]]], axis = 1);
+    sample = tf.cast(sample, dtype = tf.float32);
+    tokens = tf.cast(tokens, dtype = tf.int64);
+    yield sample, tokens;
 
 if __name__ == "__main__":
 
