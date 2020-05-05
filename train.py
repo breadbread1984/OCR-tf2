@@ -5,7 +5,7 @@ from os import mkdir;
 from os.path import join, exists;
 import cv2;
 import tensorflow as tf;
-from create_dataset import ctpn_parse_function, SampleGenerator;
+from create_dataset import ctpn_parse_function, ocr_parse_function, SampleGenerator;
 from models import Loss, OCR;
 from TextDetector import TextDetector;
 
@@ -64,9 +64,9 @@ def train_cptn():
 def train_ocr():
 
   ocr = OCR(num_class);
-  optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedulers.ExponentialDecay(1e-5, decay_steps = 30000, decay_rate = 0.9));
+  optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.ExponentialDecay(1e-5, decay_steps = 30000, decay_rate = 0.9));
   # load dataset
-  trainset = tf.data.Dataset.from_generator(SampleGenerator(10).gen, (tf.float32, tf.int64), (tf.TensorShape([None, 32]), tf.TensorShape([None,]))).repeat(-1).batch(32).prefetch(tf.data.experimental.AUTOTUNE);
+  trainset = tf.data.Dataset.from_generator(SampleGenerator(4).gen, (tf.float32, tf.int64), (tf.TensorShape([32, None, 3]), tf.TensorShape([None,]))).repeat(-1).map(ocr_parse_function).batch(32).prefetch(tf.data.experimental.AUTOTUNE);
   # restore from existing checkpoint
   if False == exists('checkpoints'): mkdir('checkpoints');
   checkpoint = tf.train.Checkpoint(model = ocr, optimizer = optimizer);
@@ -79,7 +79,7 @@ def train_ocr():
     with tf.GradientTape() as tape:
       # image.shape = (batch, seq_length, 32)
       logits = ocr(image); # logits.shape = (batch, seq_length / 8, 512)
-      loss = tf.nn.ctc_loss(labels = labels, logits = logits, label_length = labels.shape[1], logit_length = logits.shape[1], logits_time_major == False);
+      loss = tf.nn.ctc_loss(labels = labels, logits = logits, label_length = labels.shape[1], logit_length = logits.shape[1], logits_time_major = False);
       loss = tf.math.reduce_mean(loss);
     avg_loss.update_state(loss);
     # write log
@@ -104,7 +104,7 @@ if __name__ == "__main__":
   if len(sys.argv) != 2:
     print("Usage: " + sys.argv[0] + " (train_cptn|train_lstm)");
     exit(1);
-  if sys,argv[1] not in ['train_cptn', 'train_ocr']:
+  if sys.argv[1] not in ['train_cptn', 'train_ocr']:
     print("only support train_cptn or train_ocr!");
     exit(1);
   if sys.argv[1] == "train_cptn":

@@ -3,6 +3,7 @@
 import sys;
 from os import listdir, mkdir;
 from os.path import join, exists, splitext;
+from math import ceil;
 import numpy as np;
 import cv2;
 from PIL import Image, ImageDraw, ImageFont;
@@ -28,6 +29,15 @@ def ctpn_parse_function(serialized_example):
   objects = tf.sparse.to_dense(feature['objects'], default_value = 0);
   objects = tf.reshape(objects, (obj_num, 4));
   return data, objects;
+
+def ocr_parse_function(example):
+
+  data = example[0];
+  width = 8 * ceil(data.shape[1] / 8);
+  data = cv2.resize(data, (width, 32));
+  data = tf.cast(data, dtype = tf.float32);
+  label = tf.cast(example[1], dtype = tf.int64);
+  return data, label;
 
 def create_dataset(root_dir, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
 
@@ -99,7 +109,7 @@ class SampleGenerator(object):
       sample.rotate(np.random.uniform(low = -5, high = 5), expand = 0);
       sample = np.asarray(sample);
       samples.append(sample);
-    return tf.cast(np.concatenate(samples, axis = 1), dtype = tf.float32), tf.cast(tokens, dtype = tf.int64);
+    yield np.concatenate(samples), tokens;
 
 if __name__ == "__main__":
 

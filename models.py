@@ -269,8 +269,8 @@ def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_po
 
 def OCR(num_class, drop_rate = 0.5, num_layer = 2, num_units = 512):
 
-  inputs = tf.keras.Input((None, 32)); # inputs.shape = (batch, seq_length, 32)
-  results = tf.keras.layers.Reshape((-1, 32, 1))(inputs); # results.shape = (batch, seq_length, 32, 1)
+  inputs = tf.keras.Input((32, None, 3)); # inputs.shape = (batch, 32, seq_length, 3)
+  results = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0, 2, 1, 3)))(inputs); # results.shape = (batch, seq_length, 32, 3)
   results = tf.keras.layers.Conv2D(filters = 32, kernel_size = (3,3), padding = 'same', kernel_initializer = tf.keras.initializers.TruncatedNormal(stddev = 0.5), bias_initializer = tf.constant_initializer(0.1))(results); # results.shape = (batch, seq_length, 32, 32)
   results = tf.keras.layers.BatchNormalization()(results); # results.shape = (batch, seq_length, 32, 32)
   results = tf.keras.layers.ReLU()(results); # results.shape = (batch, seq_length, 32, 32)
