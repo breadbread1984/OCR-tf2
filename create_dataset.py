@@ -30,6 +30,12 @@ def ctpn_parse_function(serialized_example):
   objects = tf.reshape(objects, (obj_num, 4));
   return data, objects;
 
+def ocr_parse_function(data, label):
+
+  data = tf.cast(data, dtype = tf.float32) / 255.;
+  label = tf.cast(label, dtype = tf.int64);
+  return data, label;
+
 def create_dataset(root_dir, rpn_neg_thres = 0.3, rpn_pos_thres = 0.7):
 
   if not exists('datasets'): mkdir('datasets');
@@ -111,8 +117,6 @@ class SampleGenerator(object):
     else:
       ul_xy = (np.random.randint(low = 0, high = bg_img.shape[1] - (width - sample.shape[1])), np.random.randint(low = 0, high = bg_img.shape[0] - 32));
       sample = np.concatenate([sample, bg_img[ul_xy[1]:ul_xy[1] + 32, ul_xy[0]:ul_xy[0] + width - sample.shape[1]]], axis = 1);
-    sample = tf.cast(sample, dtype = tf.float32);
-    tokens = tf.cast(tokens, dtype = tf.int64);
     yield sample, tokens;
 
 if __name__ == "__main__":
