@@ -10,7 +10,7 @@ from models import Loss, OCR;
 from TextDetector import TextDetector;
 
 dataset_size = 3421;
-batch_size = 32;
+batch_size = 64;
 
 def train_cptn():
 

@@ -77,6 +77,7 @@ class SampleGenerator(object):
 
     self.tokenizer = Tokenizer();
     self.bg_imgs = [cv2.imread(join('background', bg_img)) for bg_img in listdir('background')];
+    for bg in self.bg_imgs: assert(bg is not None);
     self.fonts_path = [join('fonts', font_path) for font_path in listdir('fonts')];
     self.length = length;
     
