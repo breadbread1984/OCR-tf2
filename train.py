@@ -10,6 +10,7 @@ from models import Loss, OCR;
 from TextDetector import TextDetector;
 
 dataset_size = 3421;
+batch_size = 32;
 
 def train_cptn():
 
@@ -66,7 +67,7 @@ def train_ocr():
   ocr = OCR(generator.vocab_size());
   optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.ExponentialDecay(1e-5, decay_steps = 30000, decay_rate = 0.9));
   # load dataset
-  trainset = tf.data.Dataset.from_generator(generator.gen, (tf.float32, tf.int64), (tf.TensorShape([32, None, 3]), tf.TensorShape([None,]))).repeat(-1).map(ocr_parse_function).batch(32).prefetch(tf.data.experimental.AUTOTUNE);
+  trainset = tf.data.Dataset.from_generator(generator.gen, (tf.float32, tf.int64), (tf.TensorShape([32, None, 3]), tf.TensorShape([None,]))).repeat(-1).map(ocr_parse_function).batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE);
   # restore from existing checkpoint
   if False == exists('checkpoints'): mkdir('checkpoints');
   checkpoint = tf.train.Checkpoint(model = ocr, optimizer = optimizer);
@@ -79,7 +80,7 @@ def train_ocr():
     with tf.GradientTape() as tape:
       # image.shape = (batch, seq_length, 32)
       logits = ocr(image); # logits.shape = (batch, seq_length / 8, 512)
-      loss = tf.nn.ctc_loss(labels = labels, logits = logits, label_length = labels.shape[1], logit_length = logits.shape[1], logits_time_major = False);
+      loss = tf.nn.ctc_loss(labels = labels, logits = logits, label_length = tf.tile(labels.shape[1], (batch_size,)), logit_length = tf.tile(logits.shape[1], (batch_size,)), logits_time_major = False);
       loss = tf.math.reduce_mean(loss);
     avg_loss.update_state(loss);
     # write log
