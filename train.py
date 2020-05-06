@@ -80,7 +80,7 @@ def train_ocr():
     with tf.GradientTape() as tape:
       # image.shape = (batch, seq_length, 32)
       logits = ocr(image); # logits.shape = (batch, seq_length / 8, 512)
-      loss = tf.nn.ctc_loss(labels = labels, logits = logits, label_length = tf.tile(labels.shape[1], (batch_size,)), logit_length = tf.tile(logits.shape[1], (batch_size,)), logits_time_major = False);
+      loss = tf.nn.ctc_loss(labels = labels, logits = logits, label_length = tf.tile([labels.shape[1]], (batch_size,)), logit_length = tf.tile([logits.shape[1]], (batch_size,)), logits_time_major = False);
       loss = tf.math.reduce_mean(loss);
     avg_loss.update_state(loss);
     # write log
