@@ -65,7 +65,7 @@ def train_ocr():
 
   generator = SampleGenerator(10);
   ocr = OCR(generator.vocab_size());
-  optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.ExponentialDecay(1e-5, decay_steps = 30000, decay_rate = 0.9));
+  optimizer = tf.keras.optimizers.Adam(1e-4);
   # load dataset
   trainset = tf.data.Dataset.from_generator(generator.gen, (tf.float32, tf.int64), (tf.TensorShape([32, None, 3]), tf.TensorShape([None,]))).repeat(-1).map(ocr_parse_function).batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE);
   # restore from existing checkpoint
@@ -87,7 +87,7 @@ def train_ocr():
     if tf.equal(optimizer.iterations % 100, 0):
       with log.as_default():
         tf.summary.scalar('loss', avg_loss.result(), step = optimizer.iterations);
-      print('Step #%d Loss: %.6f lr: %.6f' % (optimizer.iterations, avg_loss.result(), optimizer._hyper['learning_rate'](optimizer.iterations)));
+      print('Step #%d Loss: %.6f' % (optimizer.iterations, avg_loss.result());
       if avg_loss.result() < 0.01: break;
       avg_loss.reset_states();
     grads = tape.gradient(loss, ocr.trainable_variables);
