@@ -18,13 +18,13 @@ python3 create_dataset.py <path/to/mlt directory>
 train with the following command
 
 ```bash
-python3 train.py train_cptn
+python3 train.py ctpn
 ```
 
 when the training process finishes, it will save the parameters in hdf5 format automatically. if you interrupt the training process, you can save the model with the following command
 
 ```bash
-python3 save_model.py
+python3 save_model.py ctpn
 ```
 
 ## test the text area detector
@@ -58,3 +58,17 @@ here are some results of my model which is enclosed at model/ctpn.h5 .
     </tr>
   </table>
 </p>
+
+## train the ocr
+
+train with the following command
+
+```bash
+python3 train.py ocr
+```
+
+save the trained model with command
+
+```bash
+python3 save_model.py ocr
+```
