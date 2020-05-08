@@ -8,6 +8,7 @@ import tensorflow as tf;
 from create_dataset import ctpn_parse_function, ocr_parse_function, SampleGenerator;
 from models import Loss, OCR;
 from TextDetector import TextDetector;
+from TextRecognizer import TextRecognizer;
 
 dataset_size = 3421;
 batch_size = 64;
@@ -64,13 +65,13 @@ def train_cptn():
 def train_ocr():
 
   generator = SampleGenerator(10);
-  ocr = OCR(generator.vocab_size());
+  recognizer = TextRecognizer();
   optimizer = tf.keras.optimizers.Adam(1e-4);
   # load dataset
   trainset = tf.data.Dataset.from_generator(generator.gen, (tf.float32, tf.int64), (tf.TensorShape([32, None, 3]), tf.TensorShape([None,]))).repeat(-1).map(ocr_parse_function).batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE);
   # restore from existing checkpoint
   if False == exists('checkpoints'): mkdir('checkpoints');
-  checkpoint = tf.train.Checkpoint(model = ocr, optimizer = optimizer);
+  checkpoint = tf.train.Checkpoint(model = recognizer.ocr, optimizer = optimizer);
   checkpoint.restore(tf.train.latest_checkpoint('checkpoints'));
   # create log
   log = tf.summary.create_file_writer('checkpoints');
@@ -80,7 +81,7 @@ def train_ocr():
   for image, labels in trainset:
     with tf.GradientTape() as tape:
       # image.shape = (batch, seq_length, 32)
-      logits = ocr(image); # logits.shape = (batch, seq_length / 8, 512)
+      logits = recognizer.ocr(image); # logits.shape = (batch, seq_length / 8, 512)
       loss = tf.nn.ctc_loss(labels = labels, logits = logits, label_length = tf.tile([labels.shape[1]], (batch_size,)), logit_length = tf.tile([logits.shape[1]], (batch_size,)), logits_time_major = False);
       loss = tf.math.reduce_mean(loss);
     avg_loss.update_state(loss);
@@ -93,18 +94,21 @@ def train_ocr():
       with log.as_default():
         tf.summary.scalar('loss', avg_loss.result(), step = optimizer.iterations);
         tf.summary.scalar('word error', avg_err.result(), step = optimizer.iterations);
+        text = recognizer.recognize(image[0:1,...], False);
+        tf.summary.image('image', tf.cast(image[0:1,...] * 255., dtype = tf.uint8), step = optimizer.iterations);
+        tf.summary.text('text', text, step = optimizer.iterations);
       print('Step #%d Loss: %.6f' % (optimizer.iterations, avg_loss.result()));
       if avg_loss.result() < 0.01: break;
       avg_loss.reset_states();
       avg_err.reset_states();
-    grads = tape.gradient(loss, ocr.trainable_variables);
-    optimizer.apply_gradients(zip(grads, ocr.trainable_variables));
+    grads = tape.gradient(loss, recognizer.ocr.trainable_variables);
+    optimizer.apply_gradients(zip(grads, recognizer.ocr.trainable_variables));
     # save model
     if tf.equal(optimizer.iterations % 2000, 0):
       checkpoint.save(join('checkpoints', 'ckpt'));
   # save the network structure with weights
   if False == exists('model'): mkdir('model');
-  ocr.save(join('model', 'ocr.h5'));
+  recognizer.ocr.save(join('model', 'ocr.h5'));
 
 if __name__ == "__main__":
 
