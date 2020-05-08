@@ -77,7 +77,6 @@ def train_ocr():
   log = tf.summary.create_file_writer('checkpoints');
   # train model
   avg_loss = tf.keras.metrics.Mean(name = 'loss', dtype = tf.float32);
-  avg_err = tf.keras.metrics.Mean(name = 'word error', dtype = tf.float32);
   for image, labels in trainset:
     with tf.GradientTape() as tape:
       # image.shape = (batch, seq_length, 32)
@@ -85,22 +84,20 @@ def train_ocr():
       loss = tf.nn.ctc_loss(labels = labels, logits = logits, label_length = tf.tile([labels.shape[1]], (batch_size,)), logit_length = tf.tile([logits.shape[1]], (batch_size,)), logits_time_major = False);
       loss = tf.math.reduce_mean(loss);
     avg_loss.update_state(loss);
-    logits = tf.transpose(logits, (1,0,2)); # logits.shape = (seq_length, batch, num_class)
-    decoded, _ = tf.nn.ctc_beam_search_decoder(logits, tf.tile([image.shape[2] // 8], (batch_size,)));
-    err = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), tf.sparse.from_dense(tf.cast(labels, dtype = tf.int32))));
-    avg_err.update_state(err);
     # write log
     if tf.equal(optimizer.iterations % 100, 0):
       with log.as_default():
         tf.summary.scalar('loss', avg_loss.result(), step = optimizer.iterations);
-        tf.summary.scalar('word error', avg_err.result(), step = optimizer.iterations);
+        logits = tf.transpose(logits, (1,0,2)); # logits.shape = (seq_length, batch, num_class)
+        decoded, _ = tf.nn.ctc_beam_search_decoder(logits, tf.tile([image.shape[2] // 8], (batch_size,)));
+        err = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), tf.sparse.from_dense(tf.cast(labels, dtype = tf.int32))));
+        tf.summary.scalar('word error', err, step = optimizer.iterations);
         text = recognizer.recognize(image[0:1,...], False);
         tf.summary.image('image', tf.cast(image[0:1,...] * 255., dtype = tf.uint8), step = optimizer.iterations);
         tf.summary.text('text', text, step = optimizer.iterations);
       print('Step #%d Loss: %.6f' % (optimizer.iterations, avg_loss.result()));
       if avg_loss.result() < 0.01: break;
       avg_loss.reset_states();
-      avg_err.reset_states();
     grads = tape.gradient(loss, recognizer.ocr.trainable_variables);
     optimizer.apply_gradients(zip(grads, recognizer.ocr.trainable_variables));
     # save model
