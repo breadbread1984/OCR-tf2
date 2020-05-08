@@ -44,7 +44,7 @@ class TextRecognizer(object):
     logits = self.ocr(inputs);
     decoded, _ = tf.nn.ctc_beam_search_decoder(logits, inputs.shape[2] // 8, merge_repeated = False);
     tokens = tf.cast(tf.sparse.to_dense(decoded[0]), dtype = tf.int64);
-    return self.tokenizer.translate(tokens);
+    return self.tokenizer.translate(tokens[0]);
 
 if __name__ == "__main__":
 

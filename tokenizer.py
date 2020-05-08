@@ -5,11 +5,11 @@ import pandas as pd;
 class Tokenizer(object):
 
   def __init__(self, vocab_file = 'vocab.pkl'):
-    
+
     self.vocab = pd.read_pickle('vocab.pkl');
 
   def tokenize(self, str):
-      
+
     tokens = list();
     for ch in str:
       token = self.vocab[self.vocab['character'] == ch]['token'].iloc[0];
@@ -25,7 +25,7 @@ class Tokenizer(object):
     return ''.join(s);
 
   def size(self):
-    
+
     return len(self.vocab);
 
 if __name__ == "__main__":
