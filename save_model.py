@@ -38,4 +38,4 @@ if __name__ == "__main__":
   if sys.argv[1] == "ctpn":
     save_cptn();
   else:
-    train_ocr();
+    save_ocr();
