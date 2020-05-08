@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import sys;
+from os.path import exists, join;
 import cv2;
 import tensorflow as tf;
 from models import OCR;
