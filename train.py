@@ -84,6 +84,7 @@ def train_ocr():
       loss = tf.nn.ctc_loss(labels = labels, logits = logits, label_length = tf.tile([labels.shape[1]], (batch_size,)), logit_length = tf.tile([logits.shape[1]], (batch_size,)), logits_time_major = False);
       loss = tf.math.reduce_mean(loss);
     avg_loss.update_state(loss);
+    logits = tf.transpose(logits, (1,0,2)); # logits.shape = (seq_length, batch, num_class)
     decoded, _ = tf.nn.ctc_beam_search_decoder(logits, image.shape[2] // 8);
     err = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), labels))
     avg_err.update_state(err);
