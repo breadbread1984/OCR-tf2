@@ -42,7 +42,8 @@ class TextRecognizer(object):
     else:
       inputs = img;
     logits = self.ocr(inputs);
-    decoded, _ = tf.nn.ctc_beam_search_decoder(logits, inputs.shape[2] // 8);
+    logits = tf.transpose(logits, (1,0,2)); # logits.shape = (seq_length, batch_size, num_class)
+    decoded, _ = tf.nn.ctc_beam_search_decoder(logits, [inputs.shape[2] // 8]);
     tokens = tf.cast(tf.sparse.to_dense(decoded[0]), dtype = tf.int64);
     return self.tokenizer.translate(tokens[0]);
 
