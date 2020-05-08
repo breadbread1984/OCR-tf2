@@ -92,7 +92,7 @@ def train_ocr():
       with log.as_default():
         tf.summary.scalar('loss', avg_loss.result(), step = optimizer.iterations);
         tf.summary.scalar('word error', avg_err.result(), step = optimizer.iterations);
-      print('Step #%d Loss: %.6f' % (optimizer.iterations, avg_loss.result());
+      print('Step #%d Loss: %.6f' % (optimizer.iterations, avg_loss.result()));
       if avg_loss.result() < 0.01: break;
       avg_loss.reset_states();
       avg_err.reset_states();
