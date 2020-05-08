@@ -76,6 +76,7 @@ def train_ocr():
   log = tf.summary.create_file_writer('checkpoints');
   # train model
   avg_loss = tf.keras.metrics.Mean(name = 'loss', dtype = tf.float32);
+  avg_error = tf.keras.metrics.Mean(name = 'word error', dtype = tf.float32);
   for image, labels in trainset:
     with tf.GradientTape() as tape:
       # image.shape = (batch, seq_length, 32)
@@ -83,13 +84,18 @@ def train_ocr():
       loss = tf.nn.ctc_loss(labels = labels, logits = logits, label_length = tf.tile([labels.shape[1]], (batch_size,)), logit_length = tf.tile([logits.shape[1]], (batch_size,)), logits_time_major = False);
       loss = tf.math.reduce_mean(loss);
     avg_loss.update_state(loss);
+    decoded, _ = tf.nn.ctc_beam_search_decoder(logits, image.shape[2] // 8);
+    err = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), labels))
+    avg_err.update_state(err);
     # write log
     if tf.equal(optimizer.iterations % 100, 0):
       with log.as_default():
         tf.summary.scalar('loss', avg_loss.result(), step = optimizer.iterations);
+        tf.summary.scalar('word error', avg_err.result(), step = optimizer.iterations);
       print('Step #%d Loss: %.6f' % (optimizer.iterations, avg_loss.result());
       if avg_loss.result() < 0.01: break;
       avg_loss.reset_states();
+      avg_err.reset_states();
     grads = tape.gradient(loss, ocr.trainable_variables);
     optimizer.apply_gradients(zip(grads, ocr.trainable_variables));
     # save model
@@ -103,12 +109,12 @@ if __name__ == "__main__":
 
   assert tf.executing_eagerly();
   if len(sys.argv) != 2:
-    print("Usage: " + sys.argv[0] + " (train_cptn|train_lstm)");
+    print("Usage: " + sys.argv[0] + " (ctpn|ocr)");
     exit(1);
-  if sys.argv[1] not in ['train_cptn', 'train_ocr']:
-    print("only support train_cptn or train_ocr!");
+  if sys.argv[1] not in ['ctpn', 'ocr']:
+    print("only support ctpn or ocr!");
     exit(1);
-  if sys.argv[1] == "train_cptn":
+  if sys.argv[1] == "ctpn":
     train_cptn();
   else:
     train_ocr();
