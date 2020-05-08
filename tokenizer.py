@@ -20,11 +20,7 @@ class Tokenizer(object):
 
     s = list();
     for token in tokens:
-      try:
-        ch = self.vocab[self.vocab['token'] == token]['character'].iloc[0];
-      except:
-        print(self.vocab['token'] == token);
-        exit(1);
+      ch = self.vocab[self.vocab['token'] == int(token)]['character'].iloc[0];
       s.append(ch);
     return ''.join(s);
 
