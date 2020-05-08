@@ -14,7 +14,7 @@ def main():
   for image, label in testset:
     text = text_recognizer.recognize(image, preprocess = False);
     print(text);
-    cv2.imshow("image", image[0,...].numpy().astype('uint8'));
+    cv2.imshow("image", (image[0,...] * 255.).numpy().astype('uint8'));
     cv2.waitKey();
 
 if __name__ == "__main__":
