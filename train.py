@@ -77,7 +77,7 @@ def train_ocr():
   log = tf.summary.create_file_writer('checkpoints');
   # train model
   avg_loss = tf.keras.metrics.Mean(name = 'loss', dtype = tf.float32);
-  avg_error = tf.keras.metrics.Mean(name = 'word error', dtype = tf.float32);
+  avg_err = tf.keras.metrics.Mean(name = 'word error', dtype = tf.float32);
   for image, labels in trainset:
     with tf.GradientTape() as tape:
       # image.shape = (batch, seq_length, 32)
