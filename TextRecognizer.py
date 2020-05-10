@@ -2,6 +2,8 @@
 
 import sys;
 from os.path import exists, join;
+from math import ceil;
+import numpy as np;
 import cv2;
 import tensorflow as tf;
 from models import OCR;
@@ -19,18 +21,12 @@ class TextRecognizer(object):
   def resize(self, img):
     
     scale = img.shape[0] / 32;
-    height = img.shape[0] / scale;
-    width = img.shape[1] / scale;
+    height = 32;
+    width = int(img.shape[1] / scale);
     img = cv2.resize(img, (width, height));
-    new_width = 8 * round(width / 8);
-    if width > new_width:
-      img = cv2.resize(img, (new_width, height));
-    elif width < new_width:
-      padding = 255 * np.ones((height, new_width - width, 3), dtype = np.uint8);
-      left_width = np.random.randint(low = 0, high = padding.shape[1]);
-      left_padding = padding[:,:left_width,:];
-      right_padding = padding[:,left_width:,:];
-      img = np.concatenate([left_padding, img, right_padding], axis = 1);
+    new_width = 8 * ceil(width / 8);
+    if new_width > width:
+      img = np.concatenate([img, np.zeros(32, new_width - width, 3)], axis = 1);
     return img;
 
   def recognize(self, img, preprocess = True):
