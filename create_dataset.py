@@ -112,8 +112,8 @@ class SampleGenerator(object):
       samples.append(sample);
     sample = np.concatenate(samples, axis = 1);
     new_width = 8 * ceil(sample.shape[1] / 8);
-    if new_width > width:
-      sample = np.concatenate([sample, np.zeros((32, new_width - width, 3))], axis = 1);
+    if new_width > sample.shape[1]:
+      sample = np.concatenate([sample, np.zeros((32, new_width - sample.shape[1], 3))], axis = 1);
     yield sample, tokens;
 
 if __name__ == "__main__":
