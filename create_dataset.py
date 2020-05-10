@@ -118,10 +118,13 @@ class SampleGenerator(object):
       ul_xy = (np.random.randint(low = 0, high = bg_img.shape[1] - (width - sample.shape[1])), np.random.randint(low = 0, high = bg_img.shape[0] - 32));
       padding = bg_img[ul_xy[1]:ul_xy[1] + 32, ul_xy[0]:ul_xy[0] + width - sample.shape[1], :];
       padding = cv2.cvtColor(padding, cv2.COLOR_BGR2RGB);
+      '''
       left_width = np.random.randint(low = 0, high = padding.shape[1]);
       left_padding = padding[:,:left_width,:];
       right_padding = padding[:,left_width:,:];
       sample = np.concatenate([left_padding, sample, right_padding], axis = 1);
+      '''
+      sample = np.concatenate([sample, padding], axis = 1);
     yield sample, tokens;
 
 if __name__ == "__main__":
