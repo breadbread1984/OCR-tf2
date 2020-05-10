@@ -294,7 +294,8 @@ def OCR(num_class, drop_rate = 0.5, num_layer = 2, num_units = 512):
   results = tf.keras.layers.ReLU()(results); # results.shape = (batch, seq_length / 8, 32 / 8, 256)
   results = tf.keras.layers.Dropout(drop_rate)(results); # results.shape = (batch, seq_length / 8, 32 / 8, 256)
   results = tf.keras.layers.Reshape((-1, 4 * 256))(results); # results.shape = (batch, seq_length * 32 / 256, 4 * 256)
-  results = tf.keras.layers.RNN([tf.keras.layers.LSTMCell(units = num_units, dropout = drop_rate) for i in range(num_layer)], return_sequences = True)(results); # results.shape = (batch, seq_length * 32 / 256, 512)
+  initial_state = tf.keras.layers.Lambda(lambda x, n: tf.zeros((tf.shape(x)[0], n), dtype = tf.float32), arguments = {'n': num_units})(inputs); # initial_state.shape = (batch, 512)
+  results = tf.keras.layers.RNN([tf.keras.layers.LSTMCell(units = num_units, dropout = drop_rate) for i in range(num_layer)], return_sequences = True)(results, initial_state = [[initial_state, initial_state], [initial_state, initial_state]]); # results.shape = (batch, seq_length * 32 / 256, 512)
   results = tf.keras.layers.Dense(units = num_class, kernel_initializer = tf.keras.initializers.TruncatedNormal(stddev = 0.1), bias_initializer = tf.constant_initializer(0.))(results); # results.shape = (batch, seq_length * 32 / 256, num_class)
   return tf.keras.Model(inputs = inputs, outputs = results);
 
