@@ -11,7 +11,7 @@ from TextDetector import TextDetector;
 from TextRecognizer import TextRecognizer;
 
 dataset_size = 3421;
-batch_size = 64;
+batch_size = 128;
 
 def train_cptn():
 
@@ -62,6 +62,17 @@ def train_cptn():
   if False == exists('model'): mkdir('model');
   detector.ctpn.save(join('model','ctpn.h5'));
 
+def to_sparse(labels):
+
+  b = tf.tile(tf.reshape(tf.range(labels.shape[0]), (-1,1,1,1,1)),(1,labels.shape[1],labels.shape[2],labels.shape[3],1));
+  y = tf.tile(tf.reshape(tf.range(labels.shape[1]), (1,-1,1,1,1)),(labels.shape[0],1,labels.shape[2],labels.shape[3],1));
+  x = tf.tile(tf.reshape(tf.range(labels.shape[2]), (1,1,-1,1,1)),(labels.shape[0],labels.shape[1],1,labels.shape[3],1));
+  c = tf.tile(tf.reshape(tf.range(labels.shape[3]), (1,1,1,-1,1)),(labels.shape[0],labels.shape[1],labels.shape[2],1,1));
+  indices = tf.cast(tf.reshape(tf.concat([b,y,x,c], axis = -1), (-1,4)), dtype = tf.int64);
+  values = tf.reshape(labels, (-1,));
+  shape = tf.constant([labels.shape[0], labels.shape[1], labels.shape[2], labels.shape[3]], dtype = tf.int64);
+  return tf.sparse.SparseTensor(indices, values, shape);
+
 def train_ocr():
 
   generator = SampleGenerator(10);
@@ -90,7 +101,7 @@ def train_ocr():
         tf.summary.scalar('loss', avg_loss.result(), step = optimizer.iterations);
         logits = tf.transpose(logits, (1,0,2)); # logits.shape = (seq_length, batch, num_class)
         decoded, _ = tf.nn.ctc_beam_search_decoder(logits, tf.tile([image.shape[2] // 8], (batch_size,)));
-        err = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), tf.sparse.from_dense(tf.cast(labels, dtype = tf.int32))));
+        err = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), to_sparse(tf.cast(labels, dtype = tf.int32))));
         tf.summary.scalar('word error', err, step = optimizer.iterations);
         text = recognizer.recognize(image[0:1,...], False);
         tf.summary.image('image', tf.cast(image[0:1,...] * 255., dtype = tf.uint8), step = optimizer.iterations);
