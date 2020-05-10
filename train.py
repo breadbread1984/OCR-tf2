@@ -99,13 +99,11 @@ def train_ocr():
     if tf.equal(optimizer.iterations % 100, 0):
       with log.as_default():
         tf.summary.scalar('loss', avg_loss.result(), step = optimizer.iterations);
-        logits = tf.transpose(logits, (1,0,2)); # logits.shape = (seq_length, batch, num_class)
-        decoded, _ = tf.nn.ctc_beam_search_decoder(logits, tf.tile([image.shape[2] // 8], (batch_size,)));
-        err = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), to_sparse(tf.cast(labels, dtype = tf.int32))));
-        tf.summary.scalar('word error', err, step = optimizer.iterations);
-        text = recognizer.recognize(image[0:1,...], False);
+        text, decoded = recognizer.recognize(image[0:1,...], False);
+        err = tf.reduce_mean(tf.edit_distance(tf.cast(decoded, tf.int32), to_sparse(tf.cast(labels, dtype = tf.int32))));
         tf.summary.image('image', tf.cast(image[0:1,...] * 255., dtype = tf.uint8), step = optimizer.iterations);
         tf.summary.text('text', text, step = optimizer.iterations);
+        tf.summary.scalar('word error', err, step = optimizer.iterations);
       print('Step #%d Loss: %.6f' % (optimizer.iterations, avg_loss.result()));
       if avg_loss.result() < 0.01: break;
       avg_loss.reset_states();

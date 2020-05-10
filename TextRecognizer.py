@@ -43,9 +43,9 @@ class TextRecognizer(object):
       inputs = img;
     logits = self.ocr(inputs);
     logits = tf.transpose(logits, (1,0,2)); # logits.shape = (seq_length, batch_size, num_class)
-    decoded, _ = tf.nn.ctc_beam_search_decoder(logits, [inputs.shape[2] // 8]);
+    decoded, _ = tf.nn.ctc_beam_search_decoder(logits, [inputs.shape[2] // 8], beam_width = 4);
     tokens = tf.cast(tf.sparse.to_dense(decoded[0]), dtype = tf.int64);
-    return self.tokenizer.translate(tokens[0]);
+    return self.tokenizer.translate(tokens[0]), decoded[0];
 
 if __name__ == "__main__":
 
@@ -57,4 +57,5 @@ if __name__ == "__main__":
     print('failed to open image!');
     exit();
   text_recognizer = TextRecognizer();
-  print(text_recognizer.recognize(img));
+  text, _ = text_recognizer.recognize(img);
+  print(text);
