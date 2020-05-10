@@ -64,13 +64,11 @@ def train_cptn():
 
 def to_sparse(labels):
 
-  b = tf.tile(tf.reshape(tf.range(labels.shape[0]), (-1,1,1,1,1)),(1,labels.shape[1],labels.shape[2],labels.shape[3],1));
-  y = tf.tile(tf.reshape(tf.range(labels.shape[1]), (1,-1,1,1,1)),(labels.shape[0],1,labels.shape[2],labels.shape[3],1));
-  x = tf.tile(tf.reshape(tf.range(labels.shape[2]), (1,1,-1,1,1)),(labels.shape[0],labels.shape[1],1,labels.shape[3],1));
-  c = tf.tile(tf.reshape(tf.range(labels.shape[3]), (1,1,1,-1,1)),(labels.shape[0],labels.shape[1],labels.shape[2],1,1));
-  indices = tf.cast(tf.reshape(tf.concat([b,y,x,c], axis = -1), (-1,4)), dtype = tf.int64);
+  b = tf.tile(tf.reshape(tf.range(labels.shape[0]), (-1,1,1)),(1,labels.shape[1],1));
+  l = tf.tile(tf.reshape(tf.range(labels.shape[1]), (1,-1,1)),(labels.shape[0],1,1));
+  indices = tf.cast(tf.reshape(tf.concat([b,l], axis = -1), (-1,2)), dtype = tf.int64);
   values = tf.reshape(labels, (-1,));
-  shape = tf.constant([labels.shape[0], labels.shape[1], labels.shape[2], labels.shape[3]], dtype = tf.int64);
+  shape = labels.shape;
   return tf.sparse.SparseTensor(indices, values, shape);
 
 def train_ocr():
