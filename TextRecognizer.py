@@ -23,9 +23,9 @@ class TextRecognizer(object):
     width = img.shape[1] / scale;
     img = cv2.resize(img, (width, height));
     new_width = 8 * round(width / 8);
-    if width >= new_width:
+    if width > new_width:
       img = cv2.resize(img, (new_width, height));
-    else:
+    elif width < new_width:
       padding = 255 * np.ones((height, new_width - width, 3), dtype = np.uint8);
       left_width = np.random.randint(low = 0, high = padding.shape[1]);
       left_padding = padding[:,:left_width,:];
