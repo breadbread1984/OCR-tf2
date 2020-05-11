@@ -296,6 +296,6 @@ def CRNN(num_class, hidden_units = 256, layer_num = 2):
 if __name__ == "__main__":
 
   assert tf.executing_eagerly();
-  a = tf.constant(np.random.normal(size = (32,25,256)))
-  ocr = OCR(100);
-  ocr.save('ocr.h5');
+  a = tf.constant(np.random.normal(size = (32,100,256)))
+  crnn = CRNN(100);
+  crnn.save('crnn.h5');
