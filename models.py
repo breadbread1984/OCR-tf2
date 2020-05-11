@@ -267,36 +267,30 @@ def Loss(max_fg_anchors = 128, max_bg_anchors = 128, rpn_neg_thres = 0.3, rpn_po
   loss = tf.keras.layers.Lambda(lambda x: x[0] + x[1])([cls_loss, pred_loss]);
   return tf.keras.Model(inputs = (bbox_pred, gt_bbox), outputs = loss);
 
-def OCR(num_class, drop_rate = 0.5, num_layer = 2, num_units = 512):
+def CRNN(num_class, hidden_units = 256, layer_num = 2):
 
-  inputs = tf.keras.Input((32, None, 3)); # inputs.shape = (batch, 32, seq_length, 3)
-  results = tf.keras.layers.Lambda(lambda x: tf.transpose(x, (0, 2, 1, 3)))(inputs); # results.shape = (batch, seq_length, 32, 3)
-  results = tf.keras.layers.Conv2D(filters = 32, kernel_size = (3,3), padding = 'same', kernel_initializer = tf.keras.initializers.TruncatedNormal(stddev = 0.5), bias_initializer = tf.constant_initializer(0.1))(results); # results.shape = (batch, seq_length, 32, 32)
-  results = tf.keras.layers.BatchNormalization()(results); # results.shape = (batch, seq_length, 32, 32)
-  results = tf.keras.layers.ReLU()(results); # results.shape = (batch, seq_length, 32, 32)
-  results = tf.keras.layers.Conv2D(filters = 64, kernel_size = (3,3), padding = 'same', kernel_initializer = tf.keras.initializers.TruncatedNormal(stddev = 0.5), bias_initializer = tf.constant_initializer(0.1))(results); # results.shape = (batch, seq_length, 32, 64)
-  results = tf.keras.layers.BatchNormalization()(results); # results.shape = (batch, seq_length, 32, 64)
-  results = tf.keras.layers.ReLU()(results); # results.shape = (batch, seq_length, 32, 64)
-  results = tf.keras.layers.MaxPool2D(pool_size = (2,2))(results); # results.shape = (batch, seq_length / 2, 32 / 2, 64)
-  results = tf.keras.layers.Conv2D(filters = 96, kernel_size = (3,3), padding = 'same', kernel_initializer = tf.keras.initializers.TruncatedNormal(stddev = 0.5), bias_initializer = tf.constant_initializer(0.1))(results); # results.shape = (batch, seq_length / 2, 32 / 2, 96)
-  results = tf.keras.layers.BatchNormalization()(results); # results.shape = (batch, seq_length / 2, 32 / 2, 96)
-  results = tf.keras.layers.ReLU()(results); # results.shape = (batch, seq_length / 2, 32 / 2, 96)
-  results = tf.keras.layers.Conv2D(filters = 128, kernel_size = (3,3), padding = 'same', kernel_initializer = tf.keras.initializers.TruncatedNormal(stddev = 0.5), bias_initializer = tf.constant_initializer(0.1))(results); # results.shape = (batch, seq_length / 2, 32 / 2, 128)
-  results = tf.keras.layers.BatchNormalization()(results); # results.shape = (batch, seq_length / 2, 32 / 2, 128)
-  results = tf.keras.layers.ReLU()(results); # results.shape = (batch, seq_length / 2, 32 / 2, 128)
-  results = tf.keras.layers.MaxPool2D(pool_size = (2,2))(results); # results.shape = (batch, seq_length / 4, 32 / 4, 128)
-  results = tf.keras.layers.Conv2D(filters = 256, kernel_size = (3,3), padding = 'same', kernel_initializer = tf.keras.initializers.TruncatedNormal(stddev = 0.5), bias_initializer = tf.constant_initializer(0.1))(results); # results.shape = (batch, seq_length / 4, 32 / 4, 256)
-  results = tf.keras.layers.BatchNormalization()(results); # results.shape = (batch, seq_length / 4, 32 / 4, 256)
-  results = tf.keras.layers.ReLU()(results); # results.shape = (batch, seq_length / 4, 32 / 4, 256)
-  results = tf.keras.layers.MaxPool2D(pool_size = (2,2))(results); # results.shape = (batch, seq_length / 8, 32 / 8, 256)
-  results = tf.keras.layers.Conv2D(filters = 256, kernel_size = (3,3), padding = 'same', kernel_initializer = tf.keras.initializers.TruncatedNormal(stddev = 0.5), bias_initializer = tf.constant_initializer(0.1))(results); # results.shape = (batch, seq_length / 8, 32 / 8, 256)
-  results = tf.keras.layers.BatchNormalization()(results); # results.shape = (batch, seq_length / 8, 32 / 8, 256)
-  results = tf.keras.layers.ReLU()(results); # results.shape = (batch, seq_length / 8, 32 / 8, 256)
-  results = tf.keras.layers.Dropout(drop_rate)(results); # results.shape = (batch, seq_length / 8, 32 / 8, 256)
-  results = tf.keras.layers.Reshape((-1, 4 * 256))(results); # results.shape = (batch, seq_length * 32 / 256, 4 * 256)
-  initial_state = tf.keras.layers.Lambda(lambda x, n: tf.zeros((tf.shape(x)[0], n), dtype = tf.float32), arguments = {'n': num_units})(inputs); # initial_state.shape = (batch, 512)
-  results = tf.keras.layers.RNN([tf.keras.layers.LSTMCell(units = num_units, dropout = drop_rate) for i in range(num_layer)], return_sequences = True)(results, initial_state = [[initial_state, initial_state]] * num_layer); # results.shape = (batch, seq_length * 32 / 256, 512)
-  results = tf.keras.layers.Dense(units = num_class, kernel_initializer = tf.keras.initializers.TruncatedNormal(stddev = 0.1), bias_initializer = tf.constant_initializer(0.))(results); # results.shape = (batch, seq_length * 32 / 256, num_class)
+  inputs = tf.keras.Input((32, None, 3)); # inputs.shape = (batch, h = 16, w, 3)
+  results = tf.keras.layers.Conv2D(filters = 64, kernel_size = (3,3), padding = 'same')(inputs); # results.shape = (batch, h, w, 64)
+  results = tf.keras.layers.Conv2D(filters = 64, kernel_size = (3,3), padding = 'same')(results); # results.shape = (batch, h, w, 64)
+  results = tf.keras.layers.MaxPool2D(pool_size = (2,2))(results); # results.shape = (batch, h / 2, w / 2, 64)
+  results = tf.keras.layers.Conv2D(filters = 128, kernel_size = (3,3), padding = 'same')(results); # results.shape = (batch, h / 2, w / 2, 128)
+  results = tf.keras.layers.Conv2D(filters = 128, kernel_size = (3,3), padding = 'same')(results); # results.shape = (batch, h / 2, w / 2, 128)
+  results = tf.keras.layers.MaxPool2D(pool_size = (2,2))(results); # results.shape = (batch, h / 4, w / 4, 128)
+  results = tf.keras.layers.Conv2D(filters = 256, kernel_size = (3,3), padding = 'same')(results); # results.shape = (batch, h / 4, w / 4, 256)
+  results = tf.keras.layers.Conv2D(filters = 256, kernel_size = (3,3), padding = 'same')(results); # results.shape = (batch, h / 4, w / 4, 256)
+  results = tf.keras.layers.MaxPool2D(pool_size = (2,1), strides = (2,1))(results); # results.shape = (batch, h / 8, w / 4, 256)
+  results = tf.keras.layers.Conv2D(filters = 512, kernel_size = (3,3), padding = 'same')(results); # results.shape = (batch, h / 8, w / 4, 512)
+  results = tf.keras.layers.BatchNormalization()(results); # results.shape = (batch, h / 8, w / 4, 512)
+  results = tf.keras.layers.Conv2D(filters = 512, kernel_size = (3,3), padding = 'same')(results); # results.shape = (batch, h / 8, w / 4, 512)
+  results = tf.keras.layers.BatchNormalization()(results); # results.shape = (batch, h / 8, w / 4, 512)
+  results = tf.keras.layers.MaxPool2D(pool_size = (2,1), strides = (2,1))(results); # results.shape = (batch, h / 16, w / 4, 512)
+  results = tf.keras.layers.Conv2D(filters = 512, kernel_size = (2,1), padding = 'valid')(results); # results.shape = (batch, 1, w / 4, 512)
+  results = tf.keras.layers.Lambda(lambda x: tf.squeeze(x, axis = 1))(results); # results.shape = (batch, w / 4, 512)
+  forward_layers = tf.keras.layers.RNN([tf.keras.layers.LSTMCell(hidden_units, bias_initializer = tf.keras.initializers.Constant(1.0)) for i in range(layer_num)], return_sequences = True);
+  backward_layers = tf.keras.layers.RNN([tf.keras.layers.LSTMCell(hidden_units, bias_initializer = tf.keras.initializers.Constant(1.0)) for i in range(layer_num)], return_sequences = True, go_backwards = True);
+  results = tf.keras.layers.Bidirectional(layer = forward_layers, backward_layer = backward_layers, merge_mode = 'concat')(results); # results.shape = (batch, w / 4, 2 * hidden_units)
+  results = tf.keras.layers.Dense(units = num_class, kernel_initializer = tf.keras.initializers.TruncatedNormal(stddev = 0.1))(results); # results.shape = (batch, w / 4, num_class)
+  results = tf.keras.layers.Softmax()(results);
   return tf.keras.Model(inputs = inputs, outputs = results);
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ from os import mkdir;
 from os.path import join, exists;
 import tensorflow as tf;
 from create_dataset import SampleGenerator;
-from models import CTPN, OCR;
+from models import CTPN, CRNN;
 
 def save_ctpn():
 
@@ -19,12 +19,12 @@ def save_ctpn():
 def save_ocr():
 
   generator = SampleGenerator(10);
-  ocr = OCR(generator.vocab_size());
+  crnn = CRNN(generator.vocab_size());
   optimizer = tf.keras.optimizers.Adam(1e-4);
-  checkpoint = tf.train.Checkpoint(model = ocr, optimizer = optimizer);
+  checkpoint = tf.train.Checkpoint(model = crnn, optimizer = optimizer);
   checkpoint.restore(tf.train.latest_checkpoint('checkpoints'));
   if False == exists('model'): mkdir("model");
-  ocr.save(join("model", "ocr.h5"));
+  crnn.save(join("model", "crnn.h5"));
 
 if __name__ == "__main__":
 

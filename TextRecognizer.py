@@ -6,7 +6,7 @@ from math import ceil;
 import numpy as np;
 import cv2;
 import tensorflow as tf;
-from models import OCR;
+from models import CRNN;
 from tokenizer import Tokenizer;
 
 class TextRecognizer(object):
@@ -14,9 +14,9 @@ class TextRecognizer(object):
   def __init__(self):
 
     self.tokenizer = Tokenizer();
-    self.ocr = OCR(self.tokenizer.size());
-    if exists(join('model', 'ocr.h5')):
-      self.ocr = tf.keras.models.load_model(join('model','ocr.h5'), compile = False);
+    self.crnn = CRNN(self.tokenizer.size());
+    if exists(join('model', 'crnn.h5')):
+      self.crnn = tf.keras.models.load_model(join('model','crnn.h5'), compile = False);
 
   def resize(self, img):
     
@@ -37,7 +37,7 @@ class TextRecognizer(object):
       inputs = tf.cast(tf.expand_dims(input, axis = 0), dtype = tf.float32) / 255.; # input.shape = (1, seq_length, 32);
     else:
       inputs = img;
-    logits = self.ocr(inputs);
+    logits = self.crnn(inputs);
     logits = tf.transpose(logits, (1,0,2)); # logits.shape = (seq_length, batch_size, num_class)
     decoded, _ = tf.nn.ctc_beam_search_decoder(logits, [inputs.shape[2] // 8], beam_width = 4);
     tokens = tf.cast(tf.sparse.to_dense(decoded[0]), dtype = tf.int64);
