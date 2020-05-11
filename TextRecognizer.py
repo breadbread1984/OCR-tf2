@@ -34,7 +34,7 @@ class TextRecognizer(object):
     if preprocess == True:
       input = cv2.cvtColor(img, cv2.COLOR_BGR2RGB);
       input = self.resize(input);
-      inputs = tf.cast(tf.expand_dims(input, axis = 0), dtype = tf.float32) / 255.; # input.shape = (1, seq_length, 32);
+      inputs = (tf.cast(tf.expand_dims(input, axis = 0), dtype = tf.float32) / 255.) * 2. - 1.; # input.shape = (1, seq_length, 32);
     else:
       inputs = img;
     logits = self.crnn(inputs);
