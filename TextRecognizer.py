@@ -24,7 +24,7 @@ class TextRecognizer(object):
     height = 32;
     width = int(img.shape[1] / scale);
     img = cv2.resize(img, (width, height));
-    new_width = 8 * ceil(width / 8);
+    new_width = 4 * ceil(width / 4);
     if new_width > width:
       img = np.concatenate([img, np.zeros(32, new_width - width, 3)], axis = 1);
     return img;
@@ -39,7 +39,7 @@ class TextRecognizer(object):
       inputs = img;
     logits = self.crnn(inputs);
     logits = tf.transpose(logits, (1,0,2)); # logits.shape = (seq_length, batch_size, num_class)
-    decoded, _ = tf.nn.ctc_beam_search_decoder(logits, [inputs.shape[2] // 8], beam_width = 4);
+    decoded, _ = tf.nn.ctc_beam_search_decoder(logits, [inputs.shape[2] // 4], beam_width = 4);
     tokens = tf.cast(tf.sparse.to_dense(decoded[0]), dtype = tf.int64);
     return self.tokenizer.translate(tokens[0]), decoded[0];
 
