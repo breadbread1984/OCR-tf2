@@ -75,7 +75,7 @@ def train_ocr():
 
   generator = SampleGenerator(4);
   recognizer = TextRecognizer();
-  optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.ExponentialDecay(0.1, decay_steps = 10000, decay_rate = 0.9));
+  optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.ExponentialDecay(0.01, decay_steps = 10000, decay_rate = 0.9));
   # load dataset
   trainset = tf.data.Dataset.from_generator(generator.gen, (tf.float32, tf.int64), (tf.TensorShape([32, None, 3]), tf.TensorShape([None,]))).repeat(-1).map(ocr_parse_function).batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE);
   # restore from existing checkpoint
