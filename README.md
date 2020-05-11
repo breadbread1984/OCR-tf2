@@ -61,7 +61,7 @@ here are some results of my model which is enclosed at model/ctpn.h5 .
 
 ## train the ocr
 
-train with the following command
+the OCR part of the project is an implement of CRNN introduced in paper "An End-to-End Trainable Neural Network for Image-based Sequence Recognition and Its Application to Scene Text Recognition" . train the model with the following command
 
 ```bash
 python3 train.py ocr
