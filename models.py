@@ -296,10 +296,11 @@ def CRNN(num_class, hidden_units = 256, layer_num = 2):
   results = tf.keras.layers.BatchNormalization()(results);
   results = tf.keras.layers.ReLU()(results);
   results = tf.keras.layers.Lambda(lambda x: tf.squeeze(x, axis = 1))(results); # results.shape = (batch, w / 4, 512)
-  forward_layers = tf.keras.layers.RNN([tf.keras.layers.LSTMCell(hidden_units, dropout = 0.5, bias_initializer = tf.keras.initializers.Constant(1.0)) for i in range(layer_num)], return_sequences = True);
-  backward_layers = tf.keras.layers.RNN([tf.keras.layers.LSTMCell(hidden_units, dropout = 0.5, bias_initializer = tf.keras.initializers.Constant(1.0)) for i in range(layer_num)], return_sequences = True, go_backwards = True);
+  forward_layers = tf.keras.layers.RNN([tf.keras.layers.LSTMCell(hidden_units, unit_forget_bias = True) for i in range(layer_num)], return_sequences = True);
+  backward_layers = tf.keras.layers.RNN([tf.keras.layers.LSTMCell(hidden_units, unit_forget_bias = True) for i in range(layer_num)], return_sequences = True, go_backwards = True);
   results = tf.keras.layers.Bidirectional(layer = forward_layers, backward_layer = backward_layers, merge_mode = 'concat')(results); # results.shape = (batch, w / 4, 2 * hidden_units)
-  results = tf.keras.layers.Dense(units = num_class, use_bias = False, kernel_initializer = tf.keras.initializers.TruncatedNormal(stddev = 0.1))(results); # results.shape = (batch, w / 4, num_class)
+  results = tf.keras.layers.Dropout(rate = 0.5)(results);
+  results = tf.keras.layers.Dense(units = num_class, use_bias = False, kernel_initializer = tf.keras.initializers.TruncatedNormal(stddev = 0.02))(results); # results.shape = (batch, w / 4, num_class)
   return tf.keras.Model(inputs = inputs, outputs = results);
 
 if __name__ == "__main__":
