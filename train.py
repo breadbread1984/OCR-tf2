@@ -75,7 +75,7 @@ def train_ocr():
 
   generator = SampleGenerator(4);
   recognizer = TextRecognizer();
-  optimizer = tf.keras.optimizers.Adam(tf.keras.optimizers.schedules.ExponentialDecay(0.01, decay_steps = 10000, decay_rate = 0.9));
+  optimizer = tf.keras.optimizers.SGD(1e-5, decay = 1e-6, momentum = 0.9, nesterov = True, clipnorm = 5);
   # load dataset
   trainset = tf.data.Dataset.from_generator(generator.gen, (tf.float32, tf.int64), (tf.TensorShape([32, None, 3]), tf.TensorShape([None,]))).repeat(-1).map(ocr_parse_function).batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE);
   # restore from existing checkpoint
@@ -99,10 +99,10 @@ def train_ocr():
         tf.summary.scalar('loss', avg_loss.result(), step = optimizer.iterations);
         text, decoded = recognizer.recognize(image[0:1,...], False);
         err = tf.reduce_mean(tf.edit_distance(tf.cast(decoded, tf.int32), to_sparse(tf.cast(labels, dtype = tf.int32))));
-        tf.summary.image('image', tf.cast(image[0:1,...] * 255., dtype = tf.uint8), step = optimizer.iterations);
+        tf.summary.image('image', tf.cast(image[0:1,...], dtype = tf.uint8), step = optimizer.iterations);
         tf.summary.text('text', text, step = optimizer.iterations);
         tf.summary.scalar('word error', err, step = optimizer.iterations);
-      print('Step #%d Loss: %.6f lr: %.6f' % (optimizer.iterations, avg_loss.result(), optimizer._hyper['learning_rate'](optimizer.iterations)));
+      print('Step #%d Loss: %.6f' % (optimizer.iterations, avg_loss.result()));
       if avg_loss.result() < 0.01: break;
       avg_loss.reset_states();
     grads = tape.gradient(loss, recognizer.crnn.trainable_variables);
