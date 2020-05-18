@@ -99,7 +99,7 @@ def train_ocr():
         tf.summary.scalar('loss', avg_loss.result(), step = optimizer.iterations);
         text, decoded = recognizer.recognize(image[0:1,...], False);
         err = tf.reduce_mean(tf.edit_distance(tf.cast(decoded, tf.int32), to_sparse(tf.cast(labels, dtype = tf.int32))));
-        tf.summary.image('image', tf.cast(image[0:1,...], dtype = tf.uint8), step = optimizer.iterations);
+        tf.summary.image('image', tf.cast((image[0:1,...] / 2 + 0.5) * 255., dtype = tf.uint8), step = optimizer.iterations);
         tf.summary.text('text', text, step = optimizer.iterations);
         tf.summary.scalar('word error', err, step = optimizer.iterations);
       print('Step #%d Loss: %.6f' % (optimizer.iterations, avg_loss.result()));

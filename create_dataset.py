@@ -32,7 +32,7 @@ def ctpn_parse_function(serialized_example):
 
 def ocr_parse_function(data, label):
 
-  data = tf.cast(data, dtype = tf.float32);
+  data = (tf.cast(data, dtype = tf.float32) / 255. - 0.5) * 2.;
   label = tf.cast(label, dtype = tf.int64);
   return data, label;
 
