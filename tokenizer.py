@@ -20,7 +20,7 @@ class Tokenizer(object):
 
     s = list();
     for token in tokens:
-      ch = self.vocab[self.vocab['token'] == int(token)]['character'].iloc[0] if token != len(self.vocab) else '-';
+      ch = self.vocab[self.vocab['token'] == int(token)]['character'].iloc[0] if token != 0 else '-';
       s.append(ch);
     return ''.join(s);
 
