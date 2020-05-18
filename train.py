@@ -89,7 +89,7 @@ def train_ocr():
   for image, labels in trainset:
     with tf.GradientTape() as tape:
       # image.shape = (batch, seq_length, 32)
-      logits = recognizer.crnn(image); # logits.shape = (batch, seq_length / 4, 512)
+      logits = recognizer.crnn(image); # logits.shape = (batch, seq_length / 4, class_num + 1)
       loss = tf.nn.ctc_loss(labels = labels, logits = logits, label_length = tf.tile([labels.shape[1]], (batch_size,)), logit_length = tf.tile([logits.shape[1]], (batch_size,)), logits_time_major = False);
       loss = tf.math.reduce_mean(loss);
     avg_loss.update_state(loss);

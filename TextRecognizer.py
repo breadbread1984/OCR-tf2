@@ -14,7 +14,8 @@ class TextRecognizer(object):
   def __init__(self):
 
     self.tokenizer = Tokenizer();
-    self.crnn = CRNN(self.tokenizer.size());
+    # NOTE: extra class for blank index
+    self.crnn = CRNN(self.tokenizer.size() + 1);
     if exists(join('model', 'crnn.h5')):
       self.crnn = tf.keras.models.load_model(join('model','crnn.h5'), compile = False);
 
