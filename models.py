@@ -271,7 +271,7 @@ def CRNN(num_class, hidden_units = 256, layer_num = 2):
 
   inputs = tf.keras.Input((32, None, 3)); # inputs.shape = (batch, h = 16, w, 3)
   results = tf.keras.layers.Conv2D(filters = 64, kernel_size = (3,3), padding = 'same', kernel_initializer = tf.keras.initializers.VerianceScaling(), bias_initializer = tf.constant_initializer())(inputs); # results.shape = (batch, h, w, 64)
-  results = tf.keras.layers.BatchNormalization()(results);
+  results = tf.keras.layers.BatchNormalization(epsilon = 1e-5, momentum = 0.1)(results);
   results = tf.keras.layers.ReLU()(results);
   results = tf.keras.layers.MaxPool2D(pool_size = (2,2))(results); # results.shape = (batch, h / 2, w / 2, 64)
   results = tf.keras.layers.Conv2D(filters = 128, kernel_size = (3,3), padding = 'same', kernel_initializer = tf.keras.initializers.VerianceScaling(), bias_initializer = tf.constant_initializer())(results); # results.shape = (batch, h / 2, w / 2, 128)
