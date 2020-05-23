@@ -19,7 +19,7 @@ def save_ctpn():
 def save_ocr():
 
   generator = SampleGenerator(10);
-  crnn = CRNN(generator.vocab_size());
+  crnn = CRNN(generator.vocab_size() + 1);
   optimizer = tf.keras.optimizers.Adam(1e-4);
   checkpoint = tf.train.Checkpoint(model = crnn, optimizer = optimizer);
   checkpoint.restore(tf.train.latest_checkpoint('checkpoints'));
