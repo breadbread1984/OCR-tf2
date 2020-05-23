@@ -43,7 +43,7 @@ class TextRecognizer(object):
     tokens = decoded[0][0]; # the most probabable path.shape = (seq_length, 1)
     prob = decoded[1][0]; # the probability of the most probable path.shape = (1,)
     tokens = tf.squeeze(tokens, axis = 1); # tokens.shape = (seq_length)
-    return self.tokenizer.translate(tokens), decoded[0];
+    return self.tokenizer.translate(tokens), prob;
 
 if __name__ == "__main__":
 
