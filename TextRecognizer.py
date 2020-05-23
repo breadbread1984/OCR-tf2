@@ -40,7 +40,9 @@ class TextRecognizer(object):
       inputs = img;
     pred = self.crnn(inputs); # pred.shape = (batch, seq_length, num_class)
     decoded = tf.keras.backend.ctc_decode(pred, [pred.shape[1]], greedy = True);
-    tokens = tf.cast(tf.sparse.to_dense(decoded[0]), dtype = tf.int64);
+    tokens = decoded[0][0]; # the most probabable path.shape = (seq_length, 1)
+    prob = decoded[1][0]; # the probability of the most probable path.shape = (1,)
+    tokens = tf.squeeze(tokens, axis = 1); # tokens.shape = (seq_length)
     return self.tokenizer.translate(tokens[0]), decoded[0];
 
 if __name__ == "__main__":
