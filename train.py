@@ -87,10 +87,14 @@ def train_ocr():
   # train model
   avg_loss = tf.keras.metrics.Mean(name = 'loss', dtype = tf.float32);
   for image, labels in trainset:
+    if True == tf.math.reduce_any(tf.math.is_nan(image)):
+      raise Exception("nan was detected in image");
     with tf.GradientTape() as tape:
       # image.shape = (batch, seq_length, 32)
-      logits = recognizer.crnn(image); # logits.shape = (batch, seq_length / 4, class_num + 1)
-      loss = tf.keras.backend.ctc_batch_cost(y_true = labels, y_pred = logits, input_length = tf.tile([[logits.shape[1]]], (batch_size, 1)), label_length = tf.tile([[labels.shape[1]]], (batch_size, 1)));
+      pred = recognizer.crnn(image); # logits.shape = (batch, seq_length / 4, class_num + 1)
+      if True == tf.math.reduce_any(tf.math.is_nan(pred)):
+        raise Exception('nan was detected in pred!');
+      loss = tf.keras.backend.ctc_batch_cost(y_true = labels, y_pred = pred, input_length = tf.tile([[pred.shape[1]]], (batch_size, 1)), label_length = tf.tile([[labels.shape[1]]], (batch_size, 1)));
     avg_loss.update_state(loss);
     # write log
     if tf.equal(optimizer.iterations % 100, 0):

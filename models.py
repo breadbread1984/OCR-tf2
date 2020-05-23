@@ -302,7 +302,9 @@ def CRNN(num_class, hidden_units = 256):
 if __name__ == "__main__":
 
   assert tf.executing_eagerly();
-  a = tf.constant(np.random.normal(size = (10,32,100,3)))
+  a = tf.constant(np.random.normal(size = (10,32,100,3)), dtype = tf.float32)
   crnn = CRNN(100);
-  print(crnn(a).shape)
+  b = crnn(a);
+  if tf.math.reduce_any(tf.math.is_nan(b)):
+    raise Exception("nan was detected in b");
   crnn.save('crnn.h5');
