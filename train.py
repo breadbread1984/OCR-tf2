@@ -90,7 +90,7 @@ def train_ocr():
     with tf.GradientTape() as tape:
       # image.shape = (batch, seq_length, 32)
       logits = recognizer.crnn(image); # logits.shape = (batch, seq_length / 4, class_num + 1)
-      loss = tf.keras.backend.ctc_batch_cost(y_true = labels, y_pred = logits, input_length = tf.tile([logits.shape[1]], (batch_size,)), label_length = tf.tile([labels.shape[1]], (batch_size,)));
+      loss = tf.keras.backend.ctc_batch_cost(y_true = labels, y_pred = logits, input_length = tf.tile([[logits.shape[1]]], (batch_size, 1)), label_length = tf.tile([[labels.shape[1]]], (batch_size, 1)));
     avg_loss.update_state(loss);
     # write log
     if tf.equal(optimizer.iterations % 100, 0):
