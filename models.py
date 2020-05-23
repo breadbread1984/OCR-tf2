@@ -295,7 +295,8 @@ def CRNN(num_class, hidden_units = 256):
   results = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(hidden_units, return_sequences = True, use_bias = True, recurrent_activation = 'sigmoid'))(results); # results.shape = (batch, length / 4 + 1, 512)
   results = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(hidden_units))(results); # results.shape = (batch, length / 4 + 1, 256)
   results = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(hidden_units, return_sequences = True, use_bias = True, recurrent_activation = 'sigmoid'))(results); # results.shape = (batch, length / 4 + 1, 512)
-  results = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(num_class))(results); # results.shape = (batch, length / 4 + 1, 256)
+  results = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(num_class))(results); # results.shape = (batch, length / 4 + 1, num_class)
+  results = tf.keras.layers.Softmax()(results); # results.shape = (batch, length / 4 + 1, num_class)
   return tf.keras.Model(inputs = inputs, outputs = results);
 
 if __name__ == "__main__":

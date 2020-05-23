@@ -38,9 +38,8 @@ class TextRecognizer(object):
       inputs = (tf.cast(tf.expand_dims(input, axis = 0), dtype = tf.float32) / 255. - 0.5) * 2; # input.shape = (1, seq_length, 32);
     else:
       inputs = img;
-    logits = self.crnn(inputs);
-    logits = tf.transpose(logits, (1,0,2)); # logits.shape = (seq_length, batch_size, num_class)
-    decoded, _ = tf.nn.ctc_greedy_decoder(logits, [logits.shape[0]], merge_repeated = True);
+    pred = self.crnn(inputs); # pred.shape = (batch, seq_length, num_class)
+    decoded = tf.keras.backend.ctc_decode(pred, [pred.shape[1]], greedy = True);
     tokens = tf.cast(tf.sparse.to_dense(decoded[0]), dtype = tf.int64);
     return self.tokenizer.translate(tokens[0]), decoded[0];
 
