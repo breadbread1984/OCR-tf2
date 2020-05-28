@@ -73,9 +73,9 @@ def to_sparse(labels):
 
 def train_ocr():
 
-  generator = SampleGenerator(4);
+  generator = SampleGenerator(10);
   recognizer = TextRecognizer();
-  optimizer = tf.keras.optimizers.SGD(1e-5, decay = 1e-6, momentum = 0.9, nesterov = True, clipnorm = 5);
+  optimizer = tf.keras.optimizers.Adam(1e-5);
   # load dataset
   trainset = tf.data.Dataset.from_generator(generator.gen, (tf.float32, tf.int64), (tf.TensorShape([32, None, 3]), tf.TensorShape([None,]))).repeat(-1).map(ocr_parse_function).batch(batch_size).prefetch(tf.data.experimental.AUTOTUNE);
   # restore from existing checkpoint
