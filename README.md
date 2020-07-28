@@ -98,3 +98,13 @@ python3 save_model.py ocr
     </tr>
   </table>
 </p>
+
+## Text Detection + OCR
+
+for simplicity, you can just do text detection and ocr with
+
+```bash
+python3 TextOCR.py <image>
+```
+
+
