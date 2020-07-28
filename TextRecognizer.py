@@ -27,7 +27,7 @@ class TextRecognizer(object):
     img = cv2.resize(img, (width, height));
     new_width = 4 * ceil(width / 4);
     if new_width > width:
-      img = np.concatenate([img, np.zeros(32, new_width - width, 3)], axis = 1);
+      img = np.concatenate([img, np.zeros((32, new_width - width, 3))], axis = 1);
     return img;
 
   def recognize(self, img, preprocess = True):
