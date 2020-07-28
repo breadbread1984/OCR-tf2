@@ -26,7 +26,7 @@ class TextOCR(object):
 if __name__ == "__main__":
 
   if len(sys.argv) != 2:
-    print('Usage: ' + sys.argv[0] + "<image>");
+    print('Usage: ' + sys.argv[0] + " <image>");
     exit();
   img = cv2.imread('test.jpg');
   if img is None:
