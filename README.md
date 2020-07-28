@@ -72,3 +72,29 @@ save the trained model with command
 ```bash
 python3 save_model.py ocr
 ```
+
+## ocr results
+
+<p align="center">
+  <table>
+    <caption>Loss</caption>
+    <tr><td><img src="pics/crnn/loss.png" alt="train loss" width="800" /></td></tr>
+  </table>
+</p>
+<p>
+  <table>
+    <caption>Detection results</caption>
+    <tr>
+      <td><img src="pics/crnn/result1.png" width="400" /></td>
+      <td><img src="pics/crnn/result1_1.png" width="400" /></td>
+    </tr>
+    <tr>
+      <td><img src="pics/crnn/result2.png" width="400" /></td>
+      <td><img src="pics/crnn/result2_1.png" width="400" /></td>
+    </tr>
+    <tr>
+      <td><img src="pics/crnn/result3.png" width="400" /></td>
+      <td><img src="pics/crnn/result3_1.png" width="400" /></td>
+    </tr>
+  </table>
+</p>
